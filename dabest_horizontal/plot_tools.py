@@ -622,3 +622,241 @@ def sankeydiag(data, xvar, yvar, left_idx, right_idx,
         sankey_ticks = [broadcasted_left[0], right_idx[0]]
         ax.set_xticks([0, 1])
         ax.set_xticklabels(sankey_ticks)
+
+
+def horizontal_colormaker(number:int,custom_pal=None,desat_level:float=0.5):
+    import seaborn as sns
+    import matplotlib.pyplot as plt 
+
+    # If no custom palette is provided, use the default seaborn palette
+    if custom_pal is None:
+        colors = sns.color_palette(n_colors=number)
+    # If a tuple is provided, check it is the right length
+    elif isinstance(custom_pal, tuple):
+        if len(custom_pal) != number:
+            raise ValueError('Number of colors inputted does not equal number of samples')
+        else:
+            colors = custom_pal
+    # If a string is provided, check it is a matplotlib palette
+    elif isinstance(custom_pal, str):
+        # check it is in the list of matplotlib palettes.
+        if custom_pal in plt.colormaps():
+            colors = sns.color_palette(custom_pal, number)
+        else:
+            raise ValueError('The specified `custom_palette` {} is not a matplotlib palette. Please check.'.format(custom_pal))
+    else:
+        raise TypeError('Incorrect color input format')
+
+    # Desaturate the colors
+    desat_colors = [sns.desaturate(c, desat_level) for c in colors] 
+    return colors,desat_colors
+
+def horizontal_swarm_plot(data,paired:bool,idx,Num_Exps:int,xvar:str,yvar:str,colors,minimeta:bool,
+                  axes, gap_width_percent:float,raw_marker_size:int,**swarm_kwargs):  
+     
+    ## Import Modules
+    import pandas as pd
+    import numpy as np
+    import seaborn as sns
+
+    ##Variables
+    swarm_paired_line_alpha = swarm_kwargs['paired_line_alpha']
+    swarm_ylabel_show_samplesize = swarm_kwargs['ylabel_show_samplesize']
+    swarm_paired_means_offset = swarm_kwargs['paired_means_offset']
+    swarm_ylabel_fontsize = swarm_kwargs['ylabel_fontsize']
+    dot_alpha = swarm_kwargs['dot_alpha']
+    paired_dot = swarm_kwargs['paired_dot']
+
+    if paired == True:
+        Adj_Num_Exps = len(idx) + 1 if minimeta==True else len(idx)
+    else:
+        Adj_Num_Exps = len(idx[0]) + 1 if minimeta==True else len(idx[0])
+    
+    ## Unpaired
+    if paired == False:
+        ordered_labels = idx[0]
+        df_list = []
+        for i,ypos in zip(ordered_labels,np.arange(0.5,Num_Exps,1)[::-1]):
+            _df = data[data[xvar]==i].copy()
+            _df['ypos'] = ypos
+            df_list.append(_df)
+        ordered_df = pd.concat(df_list)
+
+        sns.swarmplot(ax=axes,data=ordered_df, x=yvar,y='ypos',native_scale=True, orient="h",palette=colors[::-1],alpha=dot_alpha,size=raw_marker_size)
+        axes.set_ylabel('')
+
+    ## Paired
+    else:
+        ## Create the data tuples & Mean + SD tuples
+        output_x, output_y=[],[]
+        means,sd=[],[]
+        for n,y1,y2 in zip(np.arange(0,Num_Exps,1),np.arange(0.75,Adj_Num_Exps,1)[::-1],np.arange(0.25,Adj_Num_Exps,1)[::-1]):
+            output_x.append(np.array([data[data[xvar].str.contains(idx[n][0])][yvar],
+                                     data[data[xvar].str.contains(idx[n][1])][yvar]]))
+            
+            output_y.append(np.array([len(data[data[xvar].str.contains(idx[n][0])])*[y1],
+                                      len(data[data[xvar].str.contains(idx[n][1])])*[y2]]))
+            
+            means.append(np.array([data[data[xvar].str.contains(idx[n][0])][yvar].mean(),
+                                   data[data[xvar].str.contains(idx[n][1])][yvar].mean()]))
+            
+            sd.append(np.array([data[data[xvar].str.contains(idx[n][0])][yvar].std(),
+                                   data[data[xvar].str.contains(idx[n][1])][yvar].std()]))
+        ## Plot the pairs of data
+        for x, y, c in zip(output_x,output_y,colors):  
+            axes.plot(x, y,color=c, alpha=swarm_paired_line_alpha)
+
+        ## Plot dots for each pair of data
+        if paired_dot==True:
+            for n,y1,y2 in zip(np.arange(0,Num_Exps,1),np.arange(0.75,Adj_Num_Exps,1)[::-1],np.arange(0.25,Adj_Num_Exps,1)[::-1]):
+                off = data[data[xvar].str.contains(idx[n][0])][yvar]
+                on = data[data[xvar].str.contains(idx[n][1])][yvar]
+
+                axes.plot(off,len(off)*[y1],'o',color=colors[n], markersize = raw_marker_size,alpha=dot_alpha)
+                axes.plot(on,len(on)*[y2], 'o',color=colors[n],markersize = raw_marker_size,alpha=dot_alpha)
+
+        ## Plot Mean & SD tuples
+        import matplotlib.lines as mlines
+        ax_ylims = axes.get_ylim()
+        ax_yspan = np.abs(ax_ylims[1] - ax_ylims[0])
+        gap_width = ax_yspan * gap_width_percent/100
+
+        for m,n,c in zip(np.arange(0,Num_Exps,1),np.arange(0,Adj_Num_Exps,1)[::-1],colors):
+            for a in [0,1]:
+                mean_to_high = mlines.Line2D([means[m][a]+gap_width, means[m][a]+sd[m][a]],[n+swarm_paired_means_offset[a], n+swarm_paired_means_offset[a]],color=c)
+                axes.add_line(mean_to_high) 
+
+                low_to_mean = mlines.Line2D([means[m][a]-sd[m][a], means[m][a]-gap_width],[n+swarm_paired_means_offset[a], n+swarm_paired_means_offset[a]],color=c)
+                axes.add_line(low_to_mean)
+
+    ## Parameters for X & Y axes
+    axes.set_ylim(0, Adj_Num_Exps)
+    axes.set_yticks(np.arange(0.5,Adj_Num_Exps,1))
+    axes.tick_params(left=True)
+    axes.set_xlabel(yvar)
+
+    yticklabels=[]
+    if paired==True:
+        for n in np.arange(0,Num_Exps,1):
+            if swarm_ylabel_show_samplesize == True:
+                ss = len(data[data[xvar].str.contains(idx[n][1])][yvar])
+                yticklabels.append(idx[n][0] + ' - ' + '\n' + idx[n][1]  + ' (n='+str(ss)+')')
+            else:
+                yticklabels.append(idx[n][0] +' - ' + '\n'+ idx[n][1])
+        if minimeta==True:
+            yticklabels.append('Weighted Mean')                
+    else:
+        for n in np.arange(0,Num_Exps,1):
+            if swarm_ylabel_show_samplesize == True:
+                ss = len(data[data[xvar].str.contains(idx[0][n])][yvar])
+                yticklabels.append(idx[0][n] + '\n' + ' (n='+str(ss)+')')
+            else:
+                yticklabels.append(idx[0][n])       
+    axes.set_yticklabels(yticklabels[::-1],ma='center',fontsize = swarm_ylabel_fontsize)
+    axes.spines[['top', 'right']].set_color(None)
+
+
+def horizontal_violin_plot(EffectSizeDataFrame,axes,yvar,Num_Exps:int,paired:bool,minimeta:bool,colors,
+                           contrast_mean_marker_size:float,halfviolin_alpha:float,**violin_kwargs):
+    
+    ## Import Modules
+    import numpy as np
+    import dabest
+    from dabest import plot_tools
+    import matplotlib.patches as mpatches
+
+    ## Variables
+    contrast_bar = violin_kwargs['contrast_bar']
+    contrast_bar_color = violin_kwargs['contrast_bar_color']
+    contrast_bar_alpha = violin_kwargs['contrast_bar_alpha']
+    Adj_Num_Exps    = Num_Exps if paired==True else Num_Exps-1
+    Adj_MM_Num_Exps = Adj_Num_Exps if minimeta==False else Adj_Num_Exps+1
+    paired_colors   = colors if paired==True else colors[1:]
+    experiment = EffectSizeDataFrame.effect_size
+    ## Select the bootstraps to plot
+    bootstraps = [EffectSizeDataFrame.results.bootstraps[n] for n in np.arange(0,Adj_Num_Exps,1)]
+    mean_diff  = [EffectSizeDataFrame.results.difference[n] for n in np.arange(0,Adj_Num_Exps,1)]
+    bca_low    = [EffectSizeDataFrame.results.bca_low[n] for n in np.arange(0,Adj_Num_Exps,1)]
+    bca_high   = [EffectSizeDataFrame.results.bca_high[n] for n in np.arange(0,Adj_Num_Exps,1)]
+    ypos       = np.arange(0.25,Adj_MM_Num_Exps,1)[::-1]
+    if minimeta==True:
+        bootstraps.append(EffectSizeDataFrame.mini_meta_delta.bootstraps_weighted_delta)
+        mean_diff.append(EffectSizeDataFrame.mini_meta_delta.difference)
+        bca_low.append(EffectSizeDataFrame.mini_meta_delta.bca_low)
+        bca_high.append(EffectSizeDataFrame.mini_meta_delta.bca_high)
+
+    default_violinplot_kwargs = {'widths':1, 'vert':False,'showextrema':False, 'showmedians':False, 'positions': np.arange(0.25,Adj_MM_Num_Exps,1)[::-1]}
+    v = axes.violinplot(bootstraps, **default_violinplot_kwargs,)
+    dabest.plot_tools.halfviolin(v,  half='top', alpha = halfviolin_alpha)
+
+    ## Plot mean diff and bca_low and bca_high
+    axes.plot(mean_diff,ypos, 'k.', markersize = contrast_mean_marker_size)
+    axes.plot([bca_low, bca_high], [ypos, ypos],'k', linewidth = 2.5)
+
+    ## Add Grey bar
+    if contrast_bar == True:
+        for n,y in zip(np.arange(0,Adj_MM_Num_Exps,1),ypos):
+            axes.add_patch(mpatches.Rectangle((0,y), mean_diff[n], 0.5, color=contrast_bar_color,alpha=contrast_bar_alpha,zorder=0))
+
+    ## Violin colors
+    for n,c in zip(np.arange(0,Adj_Num_Exps,1),paired_colors):
+        axes.collections[n].set_fc(c)
+
+    ## Parameters for X & Y axes
+    if experiment != 'mean_diff':
+        axes.set_xlabel(experiment)
+    else:
+        axes.set_xlabel('Δ ' + yvar)
+    axes.set_ylim(0, Num_Exps) if minimeta==False else axes.set_ylim(0, Num_Exps+1)
+    axes.set_yticks([])
+    axes.tick_params(left=False)
+    axes.spines[['top','right','left']].set_color(None)   
+    axes.plot([0, 0], [0, Num_Exps], 'k', linewidth = 1) if minimeta==False else axes.plot([0, 0], [0, Num_Exps+1], 'k', linewidth = 1)
+
+
+def horizontal_table_plot(EffectSizeDataFrame,axes, Num_Exps:int,paired:bool,minimeta:bool,**table_kwargs):
+    """Plot the table axes for the horizontal plot
+
+    Args:
+        EffectSizeDataFrame (_type_): _description_
+        axes (_type_): _description_
+        Num_Exps (int): _description_
+        paired (bool): _description_
+        minimeta (bool): _description_
+    """
+
+    ## Import Modules
+    import pandas as pd
+    import numpy as np
+
+    ## Variables
+    table_color = table_kwargs['color']
+    table_alpha = table_kwargs['alpha']
+    table_font_size = table_kwargs['fontsize']
+    table_text_color = table_kwargs['text_color']
+    Adj_Num_Exps = Num_Exps if paired==True else Num_Exps-1
+    
+    ## Create a table of deltas
+    cols=['Δ','N']
+    lst = []
+    if minimeta==True:
+        lst.append([EffectSizeDataFrame.mini_meta_delta.difference,0])
+    for n in np.arange(0,Adj_Num_Exps,1)[::-1]:
+        lst.append([EffectSizeDataFrame.results.difference[n],0])
+    tab = pd.DataFrame(lst, columns=cols)
+    
+    ## Plot the background color
+    axes.axvspan(0, 1, facecolor=table_color, alpha=table_alpha)  
+
+    ## Plot the text
+    for i in tab.index:
+        axes.text(0.5, i+0.5, "{:+.2f}".format(tab.iloc[i,0]),ha="center", va="center", color=table_text_color,size=table_font_size)
+
+    ## Parameters for X & Y axes  
+    axes.set_yticks([])
+    axes.set_ylim(0, Num_Exps) if minimeta==False else axes.set_ylim(0, Num_Exps+1)
+    axes.tick_params(left=False, bottom=False)
+    axes.spines[['top','bottom','right','left']].set_color(None)
+    axes.set_xticks([0.5])
+    axes.set_xticklabels([])
+    axes.set_xlabel('Δ')

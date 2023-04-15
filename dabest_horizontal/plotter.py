@@ -1135,3 +1135,166 @@ def EffectSizeDataFramePlotter(EffectSizeDataFrame, **plot_kwargs):
 
     # Return the figure.
     return fig
+
+
+def EffectSizeDataFramePlotterHorizontal(EffectSizeDataFrame, **kwargs):
+    """
+    Custom function that creates a Horizontal estimation plot from an EffectSizeDataFrame.
+    Keywords
+    --------
+    EffectSizeDataFrame: A `dabest` EffectSizeDataFrame object.
+    **plot_kwargs:
+        raw_marker_size=6, es_marker_size=9,
+        swarm_label=None, contrast_label=None,
+        custom_palette=None, swarm_desat=0.5, halfviolin_desat=1,
+        halfviolin_alpha=0.8,
+        face_color = None,
+        fig_size=None,
+        dpi=100,
+        ax=None,
+
+        mean_gap_width_percent = 2,
+        horizontal_plot_kwargs = None
+        horizontal_swarmplot_kwargs = None
+        horizontal_violinplot_kwargs = None
+        horizontal_table_kwargs = None
+    """
+    ## Import Modules
+    import matplotlib.pyplot as plt
+    import seaborn as sns
+    import numpy as np
+    from .misc_tools import merge_two_dicts
+    from .plot_tools import horizontal_colormaker, horizontal_swarm_plot, horizontal_violin_plot, horizontal_table_plot
+
+    ## Variables
+    show_mini_meta = kwargs["show_mini_meta"]
+    custom_palette = kwargs["custom_palette"]
+    swarm_desat = kwargs["swarm_desat"]
+    halfviolin_desat = kwargs["halfviolin_desat"]
+    dpi = kwargs["dpi"]
+    fig_size = kwargs["fig_size"]
+    face_color = kwargs["face_color"]
+    mean_gap_width_percent = kwargs["mean_gap_width_percent"]
+    raw_marker_size = kwargs["raw_marker_size"]
+    swarm_label = kwargs["swarm_label"]
+    es_marker_size = kwargs["es_marker_size"]
+    halfviolin_alpha = kwargs["halfviolin_alpha"]
+    contrast_label = kwargs["contrast_label"]
+    ax = kwargs["ax"]
+
+    default_plot_kwargs = {'plot_width_ratios' : [1,0.7,0.3] , 'contrast_wspace' : 0.05, 'title_text': None,
+                           'title_fontsize': 14,}
+    if kwargs["horizontal_plot_kwargs"] is None:
+        plot_kwargs = default_plot_kwargs
+    else:
+        plot_kwargs = merge_two_dicts(default_plot_kwargs, kwargs["horizontal_plot_kwargs"])
+
+    plot_width_ratios = plot_kwargs['plot_width_ratios']
+    contrast_wspace=plot_kwargs['contrast_wspace']
+    title_text=plot_kwargs['title_text']
+    title_fontsize = plot_kwargs['title_fontsize']
+    
+    dabest_obj = EffectSizeDataFrame.dabest_obj
+    data = dabest_obj.data
+    xvar = dabest_obj.x
+    yvar = dabest_obj.y
+    idx = dabest_obj.idx
+    paired = True if EffectSizeDataFrame.is_paired == 'sequential' or EffectSizeDataFrame.is_paired =='baseline' else False
+    minimeta = True if EffectSizeDataFrame.mini_meta == True & show_mini_meta==True else False
+    Num_Exps = len(idx[0]) if paired==False else len(idx)
+    _colors,desat_colors = horizontal_colormaker(number=Num_Exps,custom_pal=custom_palette,desat_level=swarm_desat)
+    _colors,halfviolin_colors = horizontal_colormaker(number=Num_Exps,custom_pal=custom_palette,desat_level=halfviolin_desat)
+
+    ## Checks
+    ### Check if mini-meta analysis is available
+    if EffectSizeDataFrame.effect_size != 'mean_diff' and EffectSizeDataFrame.mini_meta == True:
+        raise ValueError('Mini-meta analysis is only available for Mean Diff analysis.')
+    else:
+        minimeta = True if EffectSizeDataFrame.mini_meta == True else False
+    
+    ### Check if mini-meta and unpaired (not available)
+    if minimeta == True and paired == False:
+        raise ValueError('Mini-meta analysis is only available for paired data.')
+    
+    ### Check if mini-meta and repeated measures (not available)
+    if paired == True and any(len(x)>2 for x in EffectSizeDataFrame.idx):
+        raise ValueError('Horizontal Plot is currently unavailable for repeated measures.')
+
+
+    ## Create Figure if no axes are specified
+    if ax == None:
+        New_Num_Exps = Num_Exps+1 if minimeta==True else Num_Exps
+        if fig_size == None:
+            fig, ax = plt.subplots(1,1,figsize=(8, 1+(New_Num_Exps*3)/7),dpi=dpi)
+        else:
+            fig, ax = plt.subplots(1,1,figsize=fig_size,dpi=dpi)
+        if title_text != None:
+            fig.set_title(title_text,fontsize=title_fontsize)
+    if face_color != None:
+        ax.set_facecolor(face_color)
+    ## Inset Axes
+    ax_position = ax.get_position()
+    contrast_axes = ax.inset_axes([1+contrast_wspace, 0, (plot_width_ratios[1]/plot_width_ratios[0]), 1])
+    table_axes = ax.inset_axes([1+contrast_wspace+(plot_width_ratios[1]/plot_width_ratios[0]), 0, (plot_width_ratios[2]/plot_width_ratios[0]), 1])
+
+    ax.set_position([ax_position.x0,ax_position.y0,(ax_position.x1 - ax_position.x0) * (plot_width_ratios[0] / sum(plot_width_ratios)),(ax_position.y1 - ax_position.y0)])
+    rawdata_axes = ax
+    rawdata_axes.contrast_axes = contrast_axes
+    rawdata_axes.table_axes = table_axes
+
+    ## Plot the swarm data
+    default_swarm_kwargs = {'paired_line_alpha' : 0.1,'paired_means_offset': (0.9,0.1),
+                            'paired_dot': False, 'dot_alpha': 0.8,'xlim': None,
+                            'xlabel_fontsize': 10,'ylabel_fontsize': 12, 'ylabel_show_samplesize': False}
+
+    if kwargs["horizontal_swarmplot_kwargs"] is None:
+        swarm_kwargs = default_swarm_kwargs
+    else:
+        swarm_kwargs = merge_two_dicts(default_swarm_kwargs, kwargs["horizontal_swarmplot_kwargs"])
+
+    horizontal_swarm_plot(axes=rawdata_axes,data=data,paired=paired,idx=idx,Num_Exps=Num_Exps,xvar=xvar,yvar=yvar,colors=desat_colors,
+                  minimeta=minimeta,gap_width_percent=mean_gap_width_percent,raw_marker_size=raw_marker_size, **swarm_kwargs)
+
+    swarm_xlim,swarm_xlabel_fontsize = swarm_kwargs['xlim'],swarm_kwargs['xlabel_fontsize']
+    if type(swarm_xlim)==tuple or type(swarm_xlim)==list and len(swarm_xlim)==2:
+        rawdata_axes.set_xlim(swarm_xlim[0],swarm_xlim[1])  
+    elif swarm_xlim !=None:
+        raise ValueError('swarm_xlim should be a tuple or list of length 2. Defaulting to automatic scaling.')  
+
+    if swarm_label != None:
+        rawdata_axes.set_xlabel(swarm_label,fontsize=swarm_xlabel_fontsize)
+
+
+    ## Violin Plot / Contrast Axis
+    default_violin_kwargs = {'contrast_bar':True,'contrast_bar_color':'grey','contrast_bar_alpha':0.1,'contrast_xlim': None,
+                             'contrast_xlabel_fontsize':10}
+
+    if kwargs["horizontal_violinplot_kwargs"] is None:
+        violin_kwargs = default_violin_kwargs
+    else:
+        violin_kwargs = merge_two_dicts(default_violin_kwargs, kwargs["horizontal_violinplot_kwargs"])
+
+    horizontal_violin_plot(EffectSizeDataFrame=EffectSizeDataFrame, axes=contrast_axes, yvar=yvar, Num_Exps=Num_Exps, paired=paired, 
+                   minimeta=minimeta, colors=halfviolin_colors,contrast_mean_marker_size=es_marker_size,halfviolin_alpha=halfviolin_alpha,
+                   **violin_kwargs)
+        
+    contrast_xlim,contrast_xlabel_fontsize = violin_kwargs['contrast_xlim'],violin_kwargs['contrast_xlabel_fontsize']
+    if type(contrast_xlim)==tuple or type(contrast_xlim)==list and len(contrast_xlim)==2:
+        rawdata_axes.contrast_axes.set_xlim(contrast_xlim[0],contrast_xlim[1])  
+    elif contrast_xlim !=None:
+        raise ValueError('contrast_xlim should be a tuple or list of length 2. Defaulting to automatic scaling.')  
+
+    if contrast_label != None:
+        rawdata_axes.contrast_axes.set_xlabel(contrast_label,fontsize=contrast_xlabel_fontsize)
+
+
+    ## Plot the Table
+    default_table_kwargs = {'color' : 'yellow','alpha' :0.2,'fontsize' : 12,'text_color' : 'black'}
+
+    if kwargs["horizontal_table_kwargs"] is None:
+        table_kwargs = default_table_kwargs
+    else:
+        table_kwargs = merge_two_dicts(default_table_kwargs, kwargs["horizontal_table_kwargs"])
+
+    horizontal_table_plot(EffectSizeDataFrame=EffectSizeDataFrame,axes=table_axes,Num_Exps=Num_Exps,paired=paired,minimeta=minimeta,**table_kwargs)
+    return rawdata_axes
