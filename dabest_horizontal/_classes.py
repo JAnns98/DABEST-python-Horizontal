@@ -2923,6 +2923,8 @@ class EffectSizeDataFrame(object):
 
             #Horizontal kwargs
             horizontal=False,
+            title=None,
+            title_fontsize=14,
             mean_gap_width_percent = 2,
             horizontal_plot_kwargs=None,
             horizontal_swarmplot_kwargs=None,
@@ -3055,16 +3057,17 @@ class EffectSizeDataFrame(object):
         horizontal : bool, default False
             If True, the plot will be a horizontal plot instead of the 
             default vertical format.
+        title : str, default None
+            The title of the plot. If None, no title is displayed. Only Displayed when ax is None.
+        title_fontsize : int, default 14
+            The fontsize of the title.
         mean_gap_width_percent : int, default 2
             The width of the gap for the gapped lines (mean+sd) in the swarmplot.
-            
         horizontal_plot_kwargs : dict, default None
             This will change the appearance of the horizontal plot.Pass any keyword arguments 
             accepted by plotter.EffectSizeDataFrameHorizontalPlotter() function here, as a dict. 
             If None, the following keywords are passed to plot:
-            {'plot_width_ratios' : [1,0.7,0.3] , 'contrast_wspace' : 0.05, 'title_text': None,
-                           'title_fontsize': 14,}
-            
+            {'plot_width_ratios' : [1,0.7,0.3] , 'contrast_wspace' : 0.05}
         horizontal_swarmplot_kwargs : dict, default None
             This will change the appearance of the swarmplot in the horizontal plot. Pass any keyword arguments
             accepted by plot_tools.horizontal_swarm_plot() function here, as a dict. 
@@ -3072,14 +3075,12 @@ class EffectSizeDataFrame(object):
             {'paired_line_alpha' : 0.1,'paired_means_offset': (0.9,0.1),'paired_dot': False,
                              'dot_alpha': 0.8,'xlim': None, 'paired_dot_size': 4, 'paired_dot_alpha' : 0.4,
                             'xlabel_fontsize': 10,'ylabel_fontsize': 12, 'ylabel_show_samplesize': False}
-            
         horizontal_violinplot_kwargs : dict, default None
             This will change the appearance of the violinplot in the horizontal plot. Pass any keyword arguments
             accepted by plot_tools.horizontal_violin_plot() function here, as a dict.
             If None, the following keywords are passed to plot:
             {'contrast_bar':True,'contrast_bar_color':'grey','contrast_bar_alpha':0.1,'contrast_xlim': None,
                              'contrast_xlabel_fontsize':10}    
-
         horizontal_table_kwargs : dict, default None
             This will change the appearance of the table in the horizontal plot. Pass any keyword arguments
             accepted by plot_tools.horizontal_table() function here, as a dict.

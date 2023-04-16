@@ -1154,6 +1154,8 @@ def EffectSizeDataFramePlotterHorizontal(EffectSizeDataFrame, **kwargs):
         ax=None,
 
         mean_gap_width_percent = 2,
+        title = None,
+        title_fontsize = 14,
         horizontal_plot_kwargs = None
         horizontal_swarmplot_kwargs = None
         horizontal_violinplot_kwargs = None
@@ -1181,9 +1183,10 @@ def EffectSizeDataFramePlotterHorizontal(EffectSizeDataFrame, **kwargs):
     halfviolin_alpha = kwargs["halfviolin_alpha"]
     contrast_label = kwargs["contrast_label"]
     ax = kwargs["ax"]
+    title=kwargs["title"]
+    title_fontsize = kwargs["title_fontsize"]
 
-    default_plot_kwargs = {'plot_width_ratios' : [1,0.7,0.3] , 'contrast_wspace' : 0.05, 'title_text': None,
-                           'title_fontsize': 14,}
+    default_plot_kwargs = {'plot_width_ratios' : [1,0.7,0.3] , 'contrast_wspace' : 0.05}
     if kwargs["horizontal_plot_kwargs"] is None:
         plot_kwargs = default_plot_kwargs
     else:
@@ -1191,8 +1194,6 @@ def EffectSizeDataFramePlotterHorizontal(EffectSizeDataFrame, **kwargs):
 
     plot_width_ratios = plot_kwargs['plot_width_ratios']
     contrast_wspace=plot_kwargs['contrast_wspace']
-    title_text=plot_kwargs['title_text']
-    title_fontsize = plot_kwargs['title_fontsize']
     
     dabest_obj = EffectSizeDataFrame.dabest_obj
     data = dabest_obj.data
@@ -1228,8 +1229,10 @@ def EffectSizeDataFramePlotterHorizontal(EffectSizeDataFrame, **kwargs):
             fig, ax = plt.subplots(1,1,figsize=(8, 1+(New_Num_Exps*3)/7),dpi=dpi)
         else:
             fig, ax = plt.subplots(1,1,figsize=fig_size,dpi=dpi)
-        if title_text != None:
-            fig.set_title(title_text,fontsize=title_fontsize)
+
+        if title != None:
+            fig.suptitle(title,fontsize=title_fontsize)
+    
     if face_color != None:
         ax.set_facecolor(face_color)
     ## Inset Axes
@@ -1241,6 +1244,8 @@ def EffectSizeDataFramePlotterHorizontal(EffectSizeDataFrame, **kwargs):
     rawdata_axes = ax
     rawdata_axes.contrast_axes = contrast_axes
     rawdata_axes.table_axes = table_axes
+    fig = rawdata_axes.get_figure()
+
 
     ## Plot the swarm data
     default_swarm_kwargs = {'paired_line_alpha' : 0.3,'paired_means_offset': (0.9,0.1),'paired_dot': False, 
@@ -1297,4 +1302,4 @@ def EffectSizeDataFramePlotterHorizontal(EffectSizeDataFrame, **kwargs):
         table_kwargs = merge_two_dicts(default_table_kwargs, kwargs["horizontal_table_kwargs"])
 
     horizontal_table_plot(EffectSizeDataFrame=EffectSizeDataFrame,axes=table_axes,Num_Exps=Num_Exps,paired=paired,minimeta=minimeta,**table_kwargs)
-    return rawdata_axes
+    return fig
