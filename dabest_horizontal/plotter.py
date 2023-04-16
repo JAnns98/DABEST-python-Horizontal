@@ -1243,8 +1243,8 @@ def EffectSizeDataFramePlotterHorizontal(EffectSizeDataFrame, **kwargs):
     rawdata_axes.table_axes = table_axes
 
     ## Plot the swarm data
-    default_swarm_kwargs = {'paired_line_alpha' : 0.1,'paired_means_offset': (0.9,0.1),
-                            'paired_dot': False, 'dot_alpha': 0.8,'xlim': None,
+    default_swarm_kwargs = {'paired_line_alpha' : 0.3,'paired_means_offset': (0.9,0.1),'paired_dot': False, 
+                            'dot_alpha': 0.8,'xlim': None, 'paired_dot_size':4, 'paired_dot_alpha':0.4,
                             'xlabel_fontsize': 10,'ylabel_fontsize': 12, 'ylabel_show_samplesize': False}
 
     if kwargs["horizontal_swarmplot_kwargs"] is None:
@@ -1266,7 +1266,7 @@ def EffectSizeDataFramePlotterHorizontal(EffectSizeDataFrame, **kwargs):
 
 
     ## Violin Plot / Contrast Axis
-    default_violin_kwargs = {'contrast_bar':True,'contrast_bar_color':'grey','contrast_bar_alpha':0.1,'contrast_xlim': None,
+    default_violin_kwargs = {'contrast_bar':False,'contrast_bar_color':'grey','contrast_bar_alpha':0.1,'contrast_xlim': None,
                              'contrast_xlabel_fontsize':10}
 
     if kwargs["horizontal_violinplot_kwargs"] is None:

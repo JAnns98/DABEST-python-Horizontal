@@ -666,6 +666,8 @@ def horizontal_swarm_plot(data,paired:bool,idx,Num_Exps:int,xvar:str,yvar:str,co
     swarm_ylabel_fontsize = swarm_kwargs['ylabel_fontsize']
     dot_alpha = swarm_kwargs['dot_alpha']
     paired_dot = swarm_kwargs['paired_dot']
+    paired_dot_size = swarm_kwargs['paired_dot_size']
+    paired_dot_alpha = swarm_kwargs['paired_dot_alpha']
 
     if paired == True:
         Adj_Num_Exps = len(idx) + 1 if minimeta==True else len(idx)
@@ -712,8 +714,8 @@ def horizontal_swarm_plot(data,paired:bool,idx,Num_Exps:int,xvar:str,yvar:str,co
                 off = data[data[xvar].str.contains(idx[n][0])][yvar]
                 on = data[data[xvar].str.contains(idx[n][1])][yvar]
 
-                axes.plot(off,len(off)*[y1],'o',color=colors[n], markersize = raw_marker_size,alpha=dot_alpha)
-                axes.plot(on,len(on)*[y2], 'o',color=colors[n],markersize = raw_marker_size,alpha=dot_alpha)
+                axes.plot(off,len(off)*[y1],'o',color=colors[n], markersize = paired_dot_size,alpha=paired_dot_alpha)
+                axes.plot(on,len(on)*[y2], 'o',color=colors[n],markersize = paired_dot_size,alpha=paired_dot_alpha)
 
         ## Plot Mean & SD tuples
         import matplotlib.lines as mlines

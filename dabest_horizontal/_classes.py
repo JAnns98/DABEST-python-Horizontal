@@ -3069,8 +3069,8 @@ class EffectSizeDataFrame(object):
             This will change the appearance of the swarmplot in the horizontal plot. Pass any keyword arguments
             accepted by plot_tools.horizontal_swarm_plot() function here, as a dict. 
             If None, the following keywords are passed to plot:
-            {'paired_line_alpha' : 0.1,'paired_means_offset': (0.9,0.1),
-                            'paired_dot': False, 'dot_alpha': 0.8,'xlim': None,
+            {'paired_line_alpha' : 0.1,'paired_means_offset': (0.9,0.1),'paired_dot': False,
+                             'dot_alpha': 0.8,'xlim': None, 'paired_dot_size': 4, 'paired_dot_alpha' : 0.4,
                             'xlabel_fontsize': 10,'ylabel_fontsize': 12, 'ylabel_show_samplesize': False}
             
         horizontal_violinplot_kwargs : dict, default None
