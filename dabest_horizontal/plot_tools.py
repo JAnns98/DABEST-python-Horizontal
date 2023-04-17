@@ -651,7 +651,7 @@ def horizontal_colormaker(number:int,custom_pal=None,desat_level:float=0.5):
     desat_colors = [sns.desaturate(c, desat_level) for c in colors] 
     return colors,desat_colors
 
-def horizontal_swarm_plot(data,paired:bool,idx,Num_Exps:int,xvar:str,yvar:str,colors,minimeta:bool,
+def horizontal_swarm_plot(data,paired:bool,idx,Num_Exps:int,xvar:str,yvar:str,id_col:str,colors,minimeta:bool,
                   axes, gap_width_percent:float,raw_marker_size:int,**swarm_kwargs):  
      
     ## Import Modules
@@ -669,6 +669,16 @@ def horizontal_swarm_plot(data,paired:bool,idx,Num_Exps:int,xvar:str,yvar:str,co
     paired_dot_size = swarm_kwargs['paired_dot_size']
     paired_dot_alpha = swarm_kwargs['paired_dot_alpha']
 
+    wide_format = True if xvar == None else False
+    if wide_format == True:
+        if paired == False:
+            data = pd.melt(data,value_vars=idx[0])
+        else:
+            unpacked_idx = [item for sublist in idx for item in sublist]
+            data = pd.melt(data,value_vars=unpacked_idx, id_vars=[id_col])
+        yvar='value'
+        xvar='variable'
+
     if paired == True:
         Adj_Num_Exps = len(idx) + 1 if minimeta==True else len(idx)
     else:
@@ -683,27 +693,28 @@ def horizontal_swarm_plot(data,paired:bool,idx,Num_Exps:int,xvar:str,yvar:str,co
             _df['ypos'] = ypos
             df_list.append(_df)
         ordered_df = pd.concat(df_list)
-
+        
         sns.swarmplot(ax=axes,data=ordered_df, x=yvar,y='ypos',native_scale=True, orient="h",palette=colors[::-1],alpha=dot_alpha,size=raw_marker_size)
         axes.set_ylabel('')
 
     ## Paired
     else:
+        data.sort_values(by=[id_col], inplace=True)
         ## Create the data tuples & Mean + SD tuples
         output_x, output_y=[],[]
         means,sd=[],[]
         for n,y1,y2 in zip(np.arange(0,Num_Exps,1),np.arange(0.75,Adj_Num_Exps,1)[::-1],np.arange(0.25,Adj_Num_Exps,1)[::-1]):
             output_x.append(np.array([data[data[xvar].str.contains(idx[n][0])][yvar],
-                                     data[data[xvar].str.contains(idx[n][1])][yvar]]))
+                                    data[data[xvar].str.contains(idx[n][1])][yvar]]))
             
             output_y.append(np.array([len(data[data[xvar].str.contains(idx[n][0])])*[y1],
-                                      len(data[data[xvar].str.contains(idx[n][1])])*[y2]]))
+                                    len(data[data[xvar].str.contains(idx[n][1])])*[y2]]))
             
             means.append(np.array([data[data[xvar].str.contains(idx[n][0])][yvar].mean(),
-                                   data[data[xvar].str.contains(idx[n][1])][yvar].mean()]))
+                                data[data[xvar].str.contains(idx[n][1])][yvar].mean()]))
             
             sd.append(np.array([data[data[xvar].str.contains(idx[n][0])][yvar].std(),
-                                   data[data[xvar].str.contains(idx[n][1])][yvar].std()]))
+                                data[data[xvar].str.contains(idx[n][1])][yvar].std()]))
         ## Plot the pairs of data
         for x, y, c in zip(output_x,output_y,colors):  
             axes.plot(x, y,color=c, alpha=swarm_paired_line_alpha)
@@ -735,7 +746,7 @@ def horizontal_swarm_plot(data,paired:bool,idx,Num_Exps:int,xvar:str,yvar:str,co
     axes.set_ylim(0, Adj_Num_Exps)
     axes.set_yticks(np.arange(0.5,Adj_Num_Exps,1))
     axes.tick_params(left=True)
-    axes.set_xlabel(yvar)
+    axes.set_xlabel('Metric')
 
     yticklabels=[]
     if paired==True:
@@ -808,7 +819,7 @@ def horizontal_violin_plot(EffectSizeDataFrame,axes,yvar,Num_Exps:int,paired:boo
     if experiment != 'mean_diff':
         axes.set_xlabel(experiment)
     else:
-        axes.set_xlabel('Δ ' + yvar)
+        axes.set_xlabel('Mean difference')
     axes.set_ylim(0, Num_Exps) if minimeta==False else axes.set_ylim(0, Num_Exps+1)
     axes.set_yticks([])
     axes.tick_params(left=False)
@@ -853,7 +864,8 @@ def horizontal_table_plot(EffectSizeDataFrame,axes, Num_Exps:int,paired:bool,min
     ## Plot the text
     for i in tab.index:
         axes.text(0.5, i+0.5, "{:+.2f}".format(tab.iloc[i,0]),ha="center", va="center", color=table_text_color,size=table_font_size)
-
+    if paired==False:
+        axes.text(0.5, Num_Exps-0.5, "—",ha="center", va="center", color=table_text_color,size=table_font_size)
     ## Parameters for X & Y axes  
     axes.set_yticks([])
     axes.set_ylim(0, Num_Exps) if minimeta==False else axes.set_ylim(0, Num_Exps+1)

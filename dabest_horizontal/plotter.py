@@ -1200,6 +1200,7 @@ def EffectSizeDataFramePlotterHorizontal(EffectSizeDataFrame, **kwargs):
     xvar = dabest_obj.x
     yvar = dabest_obj.y
     idx = dabest_obj.idx
+    id_col = dabest_obj.id_col
     paired = True if EffectSizeDataFrame.is_paired == 'sequential' or EffectSizeDataFrame.is_paired =='baseline' else False
     minimeta = True if EffectSizeDataFrame.mini_meta == True & show_mini_meta==True else False
     Num_Exps = len(idx[0]) if paired==False else len(idx)
@@ -1257,7 +1258,7 @@ def EffectSizeDataFramePlotterHorizontal(EffectSizeDataFrame, **kwargs):
     else:
         swarm_kwargs = merge_two_dicts(default_swarm_kwargs, kwargs["horizontal_swarmplot_kwargs"])
 
-    horizontal_swarm_plot(axes=rawdata_axes,data=data,paired=paired,idx=idx,Num_Exps=Num_Exps,xvar=xvar,yvar=yvar,colors=desat_colors,
+    horizontal_swarm_plot(axes=rawdata_axes,data=data,paired=paired,idx=idx,Num_Exps=Num_Exps,xvar=xvar,yvar=yvar,id_col=id_col,colors=desat_colors,
                   minimeta=minimeta,gap_width_percent=mean_gap_width_percent,raw_marker_size=raw_marker_size, **swarm_kwargs)
 
     swarm_xlim,swarm_xlabel_fontsize = swarm_kwargs['xlim'],swarm_kwargs['xlabel_fontsize']
