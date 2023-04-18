@@ -1202,6 +1202,8 @@ def EffectSizeDataFramePlotterHorizontal(EffectSizeDataFrame, **kwargs):
         plot_kwargs = default_plot_kwargs
     else:
         plot_kwargs = merge_two_dicts(default_plot_kwargs, kwargs["horizontal_plot_kwargs"])
+    plot_width_ratios = plot_kwargs['plot_width_ratios']
+    contrast_wspace=plot_kwargs['contrast_wspace']
 
     ## Legend kwargs.
     default_legend_kwargs = {'loc': 'upper left', 'frameon': False,}
@@ -1210,10 +1212,6 @@ def EffectSizeDataFramePlotterHorizontal(EffectSizeDataFrame, **kwargs):
     else:
         legend_kwargs = merge_two_dicts(default_legend_kwargs,kwargs["legend_kwargs"])
 
-
-    plot_width_ratios = plot_kwargs['plot_width_ratios']
-    contrast_wspace=plot_kwargs['contrast_wspace']
-    
     dabest_obj = EffectSizeDataFrame.dabest_obj
     data = dabest_obj.data
     xvar = dabest_obj.x
@@ -1224,12 +1222,11 @@ def EffectSizeDataFramePlotterHorizontal(EffectSizeDataFrame, **kwargs):
     minimeta = True if EffectSizeDataFrame.mini_meta == True & show_mini_meta==True else False
     Num_Exps = len(idx[0]) if paired==False else len(idx)
 
-
-    # Colors
+    ## Colors
     if color_col == None:
         _colors,desat_colors = horizontal_colormaker(number=Num_Exps,custom_pal=custom_palette,desat_level=swarm_desat)
         _colors,halfviolin_colors = horizontal_colormaker(number=Num_Exps,custom_pal=custom_palette,desat_level=halfviolin_desat)
-    
+
     else:
         color_col_nums = len(data[color_col].unique())
         if color_col_nums == 0:
@@ -1253,7 +1250,6 @@ def EffectSizeDataFramePlotterHorizontal(EffectSizeDataFrame, **kwargs):
     if paired == True and any(len(x)>2 for x in EffectSizeDataFrame.idx):
         raise ValueError('Horizontal Plot is currently unavailable for repeated measures.')
 
-
     ## Create Figure if no axes are specified
     if ax == None:
         New_Num_Exps = Num_Exps+1 if minimeta==True else Num_Exps
@@ -1267,6 +1263,7 @@ def EffectSizeDataFramePlotterHorizontal(EffectSizeDataFrame, **kwargs):
     
     if face_color != None:
         ax.set_facecolor(face_color)
+
     ## Inset Axes
     ax_position = ax.get_position()
     contrast_axes = ax.inset_axes([1+contrast_wspace, 0, (plot_width_ratios[1]/plot_width_ratios[0]), 1])
@@ -1277,7 +1274,6 @@ def EffectSizeDataFramePlotterHorizontal(EffectSizeDataFrame, **kwargs):
     rawdata_axes.contrast_axes = contrast_axes
     rawdata_axes.table_axes = table_axes
     fig = rawdata_axes.get_figure()
-
 
     ## Plot the swarm data
     default_swarm_kwargs = {'paired_line_alpha' : 0.3,'paired_means_offset': (0.9,0.1),'paired_dot': False, 
@@ -1314,7 +1310,6 @@ def EffectSizeDataFramePlotterHorizontal(EffectSizeDataFrame, **kwargs):
                 handles.append(Line2D([0], [0], label=n, color=c))
             rawdata_axes.table_axes.legend(handles=handles,bbox_to_anchor=(0.85, 1.0), handlelength=1, title=color_col,**legend_kwargs)
     
-
     ## Violin Plot / Contrast Axis
     default_violin_kwargs = {'contrast_xlim': None,'contrast_xlabel_fontsize':10}
 
@@ -1336,7 +1331,6 @@ def EffectSizeDataFramePlotterHorizontal(EffectSizeDataFrame, **kwargs):
     if contrast_label != None:
         rawdata_axes.contrast_axes.set_xlabel(contrast_label,fontsize=contrast_xlabel_fontsize)
 
-
     ## Plot the Table
     default_table_kwargs = {'color' : 'yellow','alpha' :0.2,'fontsize' : 12,'text_color' : 'black'}
 
@@ -1351,4 +1345,5 @@ def EffectSizeDataFramePlotterHorizontal(EffectSizeDataFrame, **kwargs):
         rawdata_axes.set_ylim(-0.2,Num_Exps+1.2 if minimeta==True else Num_Exps+0.2)
         rawdata_axes.contrast_axes.set_ylim(-0.2,Num_Exps+1.2 if minimeta==True else Num_Exps+0.2)
         rawdata_axes.table_axes.set_ylim(-0.2,Num_Exps+1.2 if minimeta==True else Num_Exps+0.2)
+        
     return fig
