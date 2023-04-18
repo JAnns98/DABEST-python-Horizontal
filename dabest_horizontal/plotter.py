@@ -1145,13 +1145,14 @@ def EffectSizeDataFramePlotterHorizontal(EffectSizeDataFrame, **kwargs):
     EffectSizeDataFrame: A `dabest` EffectSizeDataFrame object.
     **plot_kwargs:
         raw_marker_size=6, es_marker_size=9,
-        swarm_label=None, contrast_label=None,
+        swarm_label=None, contrast_label=None, color_col=None,
         custom_palette=None, swarm_desat=0.5, halfviolin_desat=1,
         halfviolin_alpha=0.8,
         face_color = None,
         fig_size=None,
         dpi=100,
         ax=None,
+        legend_kwargs=None,
 
         mean_gap_width_percent = 2,
         title = None,
@@ -1185,12 +1186,22 @@ def EffectSizeDataFramePlotterHorizontal(EffectSizeDataFrame, **kwargs):
     ax = kwargs["ax"]
     title=kwargs["title"]
     title_fontsize = kwargs["title_fontsize"]
+    color_col = kwargs["color_col"]
 
+    ## Plot kwargs.
     default_plot_kwargs = {'plot_width_ratios' : [1,0.7,0.3] , 'contrast_wspace' : 0.05}
     if kwargs["horizontal_plot_kwargs"] is None:
         plot_kwargs = default_plot_kwargs
     else:
         plot_kwargs = merge_two_dicts(default_plot_kwargs, kwargs["horizontal_plot_kwargs"])
+
+    ## Legend kwargs.
+    default_legend_kwargs = {'loc': 'upper left', 'frameon': False,}
+    if kwargs["legend_kwargs"] is None:
+        legend_kwargs = default_legend_kwargs
+    else:
+        legend_kwargs = merge_two_dicts(default_legend_kwargs,kwargs["legend_kwargs"])
+
 
     plot_width_ratios = plot_kwargs['plot_width_ratios']
     contrast_wspace=plot_kwargs['contrast_wspace']
@@ -1204,8 +1215,20 @@ def EffectSizeDataFramePlotterHorizontal(EffectSizeDataFrame, **kwargs):
     paired = True if EffectSizeDataFrame.is_paired == 'sequential' or EffectSizeDataFrame.is_paired =='baseline' else False
     minimeta = True if EffectSizeDataFrame.mini_meta == True & show_mini_meta==True else False
     Num_Exps = len(idx[0]) if paired==False else len(idx)
-    _colors,desat_colors = horizontal_colormaker(number=Num_Exps,custom_pal=custom_palette,desat_level=swarm_desat)
-    _colors,halfviolin_colors = horizontal_colormaker(number=Num_Exps,custom_pal=custom_palette,desat_level=halfviolin_desat)
+
+
+    # Colors
+    if color_col == None:
+        _colors,desat_colors = horizontal_colormaker(number=Num_Exps,custom_pal=custom_palette,desat_level=swarm_desat)
+        _colors,halfviolin_colors = horizontal_colormaker(number=Num_Exps,custom_pal=custom_palette,desat_level=halfviolin_desat)
+    
+    else:
+        color_col_nums = len(data[color_col].unique())
+        if color_col_nums == 0:
+            raise ValueError('Color column is empty or does not exist.')
+        else:
+            _colors,desat_colors = horizontal_colormaker(number=color_col_nums,custom_pal=custom_palette,desat_level=swarm_desat)
+            _colors,halfviolin_colors = horizontal_colormaker(number=color_col_nums,custom_pal=custom_palette,desat_level=halfviolin_desat)
 
     ## Checks
     ### Check if mini-meta analysis is available
@@ -1259,7 +1282,7 @@ def EffectSizeDataFramePlotterHorizontal(EffectSizeDataFrame, **kwargs):
         swarm_kwargs = merge_two_dicts(default_swarm_kwargs, kwargs["horizontal_swarmplot_kwargs"])
 
     horizontal_swarm_plot(axes=rawdata_axes,data=data,paired=paired,idx=idx,Num_Exps=Num_Exps,xvar=xvar,yvar=yvar,id_col=id_col,colors=desat_colors,
-                  minimeta=minimeta,gap_width_percent=mean_gap_width_percent,raw_marker_size=raw_marker_size, **swarm_kwargs)
+                          color_col=color_col,minimeta=minimeta,gap_width_percent=mean_gap_width_percent,raw_marker_size=raw_marker_size, **swarm_kwargs)
 
     swarm_xlim,swarm_xlabel_fontsize = swarm_kwargs['xlim'],swarm_kwargs['xlabel_fontsize']
     if type(swarm_xlim)==tuple or type(swarm_xlim)==list and len(swarm_xlim)==2:
@@ -1269,7 +1292,20 @@ def EffectSizeDataFramePlotterHorizontal(EffectSizeDataFrame, **kwargs):
 
     if swarm_label != None:
         rawdata_axes.set_xlabel(swarm_label,fontsize=swarm_xlabel_fontsize)
-
+    
+    if color_col != None:
+        if paired == False:
+            h1, l1 = rawdata_axes.get_legend_handles_labels()
+            rawdata_axes.table_axes.legend(h1, l1,bbox_to_anchor=(0.8, 1.0), title=color_col,**legend_kwargs)
+            rawdata_axes.legend().remove()
+        else:
+            color_col_ind = data[color_col].unique()
+            from matplotlib.lines import Line2D
+            handles=[]
+            for n,c in zip(color_col_ind,desat_colors):
+                handles.append(Line2D([0], [0], label=n, color=c))
+            rawdata_axes.table_axes.legend(handles=handles,bbox_to_anchor=(0.85, 1.0), handlelength=1, title=color_col,**legend_kwargs)
+    
 
     ## Violin Plot / Contrast Axis
     default_violin_kwargs = {'contrast_bar':False,'contrast_bar_color':'grey','contrast_bar_alpha':0.1,'contrast_xlim': None,
@@ -1280,8 +1316,8 @@ def EffectSizeDataFramePlotterHorizontal(EffectSizeDataFrame, **kwargs):
     else:
         violin_kwargs = merge_two_dicts(default_violin_kwargs, kwargs["horizontal_violinplot_kwargs"])
 
-    horizontal_violin_plot(EffectSizeDataFrame=EffectSizeDataFrame, axes=contrast_axes, yvar=yvar, Num_Exps=Num_Exps, paired=paired, 
-                   minimeta=minimeta, colors=halfviolin_colors,contrast_mean_marker_size=es_marker_size,halfviolin_alpha=halfviolin_alpha,
+    horizontal_violin_plot(EffectSizeDataFrame=EffectSizeDataFrame, axes=contrast_axes, Num_Exps=Num_Exps, paired=paired, 
+                   minimeta=minimeta, colors=halfviolin_colors,color_col=color_col,contrast_mean_marker_size=es_marker_size,halfviolin_alpha=halfviolin_alpha,
                    **violin_kwargs)
         
     contrast_xlim,contrast_xlabel_fontsize = violin_kwargs['contrast_xlim'],violin_kwargs['contrast_xlabel_fontsize']

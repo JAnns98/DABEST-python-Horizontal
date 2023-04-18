@@ -651,7 +651,7 @@ def horizontal_colormaker(number:int,custom_pal=None,desat_level:float=0.5):
     desat_colors = [sns.desaturate(c, desat_level) for c in colors] 
     return colors,desat_colors
 
-def horizontal_swarm_plot(data,paired:bool,idx,Num_Exps:int,xvar:str,yvar:str,id_col:str,colors,minimeta:bool,
+def horizontal_swarm_plot(data,paired:bool,idx,Num_Exps:int,xvar:str,yvar:str,id_col:str,colors,color_col,minimeta:bool,
                   axes, gap_width_percent:float,raw_marker_size:int,**swarm_kwargs):  
      
     ## Import Modules
@@ -670,12 +670,18 @@ def horizontal_swarm_plot(data,paired:bool,idx,Num_Exps:int,xvar:str,yvar:str,id
     paired_dot_alpha = swarm_kwargs['paired_dot_alpha']
 
     wide_format = True if xvar == None else False
+    if color_col == None:
+        id_vars = [id_col] if paired == True else None
+    else:
+        id_vars = [id_col,color_col] if paired == True else [color_col]
+
+
     if wide_format == True:
         if paired == False:
-            data = pd.melt(data,value_vars=idx[0])
+            data = pd.melt(data,value_vars=idx[0], id_vars=id_vars)
         else:
             unpacked_idx = [item for sublist in idx for item in sublist]
-            data = pd.melt(data,value_vars=unpacked_idx, id_vars=[id_col])
+            data = pd.melt(data,value_vars=unpacked_idx, id_vars=id_vars)
         yvar='value'
         xvar='variable'
 
@@ -693,16 +699,24 @@ def horizontal_swarm_plot(data,paired:bool,idx,Num_Exps:int,xvar:str,yvar:str,id
             _df['ypos'] = ypos
             df_list.append(_df)
         ordered_df = pd.concat(df_list)
-        
-        sns.swarmplot(ax=axes,data=ordered_df, x=yvar,y='ypos',native_scale=True, orient="h",palette=colors[::-1],alpha=dot_alpha,size=raw_marker_size)
+        sns.swarmplot(ax=axes,data=ordered_df, x=yvar,y='ypos',native_scale=True, orient="h",palette=colors[::-1] if color_col == None else colors,
+                      alpha=dot_alpha,size=raw_marker_size,hue=color_col)
         axes.set_ylabel('')
 
     ## Paired
     else:
         data.sort_values(by=[id_col], inplace=True)
+
+        ### Deal with color_col
+        if color_col != None:
+            color_col_ind = data[color_col].unique()
+            color_col_dict = {}
+            for n,c in zip(color_col_ind,colors):
+                color_col_dict.update({n: c})
+
         ## Create the data tuples & Mean + SD tuples
         output_x, output_y=[],[]
-        means,sd=[],[]
+        means,sd, color_col_names=[],[],[]
         for n,y1,y2 in zip(np.arange(0,Num_Exps,1),np.arange(0.75,Adj_Num_Exps,1)[::-1],np.arange(0.25,Adj_Num_Exps,1)[::-1]):
             output_x.append(np.array([data[data[xvar].str.contains(idx[n][0])][yvar],
                                     data[data[xvar].str.contains(idx[n][1])][yvar]]))
@@ -715,32 +729,57 @@ def horizontal_swarm_plot(data,paired:bool,idx,Num_Exps:int,xvar:str,yvar:str,id
             
             sd.append(np.array([data[data[xvar].str.contains(idx[n][0])][yvar].std(),
                                 data[data[xvar].str.contains(idx[n][1])][yvar].std()]))
+            if color_col != None:
+                color_col_names.append(np.array(data[data[xvar].str.contains(idx[n][0])][color_col]))
+            
+
         ## Plot the pairs of data
-        for x, y, c in zip(output_x,output_y,colors):  
-            axes.plot(x, y,color=c, alpha=swarm_paired_line_alpha)
+        if color_col != None:
+            for x, y, cs in zip(output_x,output_y,color_col_names):  
+                color_cols = [color_col_dict[i] for i in cs]
+                for n,c in zip(range(0,len(x[0])),color_cols):
+                    axes.plot([x[0][n],x[1][n]],[y[0][n],y[1][n]],color=c, alpha=swarm_paired_line_alpha)
+        else:
+            for x, y, c in zip(output_x,output_y,colors):  
+                axes.plot(x, y,color=c, alpha=swarm_paired_line_alpha)
 
         ## Plot dots for each pair of data
         if paired_dot==True:
             for n,y1,y2 in zip(np.arange(0,Num_Exps,1),np.arange(0.75,Adj_Num_Exps,1)[::-1],np.arange(0.25,Adj_Num_Exps,1)[::-1]):
-                off = data[data[xvar].str.contains(idx[n][0])][yvar]
-                on = data[data[xvar].str.contains(idx[n][1])][yvar]
+                off = data[data[xvar].str.contains(idx[n][0])][yvar].values
+                on = data[data[xvar].str.contains(idx[n][1])][yvar].values
+                if color_col == None:
+                    axes.plot(off,len(off)*[y1],'o',color=colors[n], markersize = paired_dot_size,alpha=paired_dot_alpha)
+                    axes.plot(on,len(on)*[y2], 'o',color=colors[n],markersize = paired_dot_size,alpha=paired_dot_alpha)
+                else:
+                    color_col_colors = [color_col_dict[i] for i in data[data[xvar].str.contains(idx[n][0])][color_col]]
+                    for n,c in zip(range(len(off)),color_col_colors):
+                        axes.plot(off[n],y1,'o',color=c, markersize = paired_dot_size,alpha=paired_dot_alpha)
+                        axes.plot(on[n],y2, 'o',color=c,markersize = paired_dot_size,alpha=paired_dot_alpha)
 
-                axes.plot(off,len(off)*[y1],'o',color=colors[n], markersize = paired_dot_size,alpha=paired_dot_alpha)
-                axes.plot(on,len(on)*[y2], 'o',color=colors[n],markersize = paired_dot_size,alpha=paired_dot_alpha)
-
+                
         ## Plot Mean & SD tuples
         import matplotlib.lines as mlines
         ax_ylims = axes.get_ylim()
         ax_yspan = np.abs(ax_ylims[1] - ax_ylims[0])
         gap_width = ax_yspan * gap_width_percent/100
 
-        for m,n,c in zip(np.arange(0,Num_Exps,1),np.arange(0,Adj_Num_Exps,1)[::-1],colors):
-            for a in [0,1]:
-                mean_to_high = mlines.Line2D([means[m][a]+gap_width, means[m][a]+sd[m][a]],[n+swarm_paired_means_offset[a], n+swarm_paired_means_offset[a]],color=c)
-                axes.add_line(mean_to_high) 
+        if color_col == None:
+            for m,n,c in zip(np.arange(0,Num_Exps,1),np.arange(0,Adj_Num_Exps,1)[::-1],colors):
+                for a in [0,1]:
+                    mean_to_high = mlines.Line2D([means[m][a]+gap_width, means[m][a]+sd[m][a]],[n+swarm_paired_means_offset[a], n+swarm_paired_means_offset[a]],color=c)
+                    axes.add_line(mean_to_high) 
 
-                low_to_mean = mlines.Line2D([means[m][a]-sd[m][a], means[m][a]-gap_width],[n+swarm_paired_means_offset[a], n+swarm_paired_means_offset[a]],color=c)
-                axes.add_line(low_to_mean)
+                    low_to_mean = mlines.Line2D([means[m][a]-sd[m][a], means[m][a]-gap_width],[n+swarm_paired_means_offset[a], n+swarm_paired_means_offset[a]],color=c)
+                    axes.add_line(low_to_mean)
+        else:
+            for m,n in zip(np.arange(0,Num_Exps,1),np.arange(0,Adj_Num_Exps,1)[::-1]):
+                for a in [0,1]:
+                    mean_to_high = mlines.Line2D([means[m][a]+gap_width, means[m][a]+sd[m][a]],[n+swarm_paired_means_offset[a], n+swarm_paired_means_offset[a]],color='grey')
+                    axes.add_line(mean_to_high) 
+
+                    low_to_mean = mlines.Line2D([means[m][a]-sd[m][a], means[m][a]-gap_width],[n+swarm_paired_means_offset[a], n+swarm_paired_means_offset[a]],color='grey')
+                    axes.add_line(low_to_mean)
 
     ## Parameters for X & Y axes
     axes.set_ylim(0, Adj_Num_Exps)
@@ -753,9 +792,9 @@ def horizontal_swarm_plot(data,paired:bool,idx,Num_Exps:int,xvar:str,yvar:str,id
         for n in np.arange(0,Num_Exps,1):
             if swarm_ylabel_show_samplesize == True:
                 ss = len(data[data[xvar].str.contains(idx[n][1])][yvar])
-                yticklabels.append(idx[n][0] + ' - ' + '\n' + idx[n][1]  + ' (n='+str(ss)+')')
+                yticklabels.append(idx[n][1] + ' - ' + '\n' + idx[n][0]  + ' (n='+str(ss)+')')
             else:
-                yticklabels.append(idx[n][0] +' - ' + '\n'+ idx[n][1])
+                yticklabels.append(idx[n][1] +' - ' + '\n'+ idx[n][0])
         if minimeta==True:
             yticklabels.append('Weighted Mean')                
     else:
@@ -769,7 +808,7 @@ def horizontal_swarm_plot(data,paired:bool,idx,Num_Exps:int,xvar:str,yvar:str,id
     axes.spines[['top', 'right']].set_color(None)
 
 
-def horizontal_violin_plot(EffectSizeDataFrame,axes,yvar,Num_Exps:int,paired:bool,minimeta:bool,colors,
+def horizontal_violin_plot(EffectSizeDataFrame,axes,Num_Exps:int,paired:bool,minimeta:bool,colors,color_col,
                            contrast_mean_marker_size:float,halfviolin_alpha:float,**violin_kwargs):
     
     ## Import Modules
@@ -812,8 +851,12 @@ def horizontal_violin_plot(EffectSizeDataFrame,axes,yvar,Num_Exps:int,paired:boo
             axes.add_patch(mpatches.Rectangle((0,y), mean_diff[n], 0.5, color=contrast_bar_color,alpha=contrast_bar_alpha,zorder=0))
 
     ## Violin colors
-    for n,c in zip(np.arange(0,Adj_Num_Exps,1),paired_colors):
-        axes.collections[n].set_fc(c)
+    if color_col == None:
+        for n,c in zip(np.arange(0,Adj_Num_Exps,1),paired_colors):
+            axes.collections[n].set_fc(c)
+    else:
+        for n in np.arange(0,Adj_Num_Exps,1):
+            axes.collections[n].set_fc('grey')
 
     ## Parameters for X & Y axes
     if experiment != 'mean_diff':

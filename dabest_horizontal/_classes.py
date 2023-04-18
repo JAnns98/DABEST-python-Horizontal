@@ -3175,11 +3175,11 @@ class EffectSizeDataFrame(object):
         unique_horizontal_kwargs = ['self','horizontal', 'mean_gap_width_percent','horizontal_plot_kwargs',
                                     'horizontal_swarmplot_kwargs','horizontal_violinplot_kwargs','horizontal_table_kwargs']
         
-        unique_vertical_kwargs = ['self','color_col','barchart_label','delta2_label','swarm_ylim','barchart_ylim','contrast_ylim',
+        unique_vertical_kwargs = ['self','barchart_label','delta2_label','swarm_ylim','barchart_ylim','contrast_ylim',
                                   'delta2_ylim','bar_label','bar_desat','bar_width','bar_ylim','ci', 'ci_type','err_color',
                                   'float_contrast','show_pairs','show_delta2','group_summaries','group_summaries_offset',
                                   'swarmplot_kwargs','barplot_kwargs', 'violinplot_kwargs', 'slopegraph_kwargs', 'sankey_kwargs', 
-                                  'reflines_kwargs', 'group_summary_kwargs', 'legend_kwargs']
+                                  'reflines_kwargs', 'group_summary_kwargs']
     
         if horizontal == True:
              horizontal_kwargs = {key: all_kwargs[key] for key in all_kwargs if key not in unique_vertical_kwargs}
