@@ -653,6 +653,23 @@ def horizontal_colormaker(number:int,custom_pal=None,desat_level:float=0.5):
 
 def horizontal_swarm_plot(data,paired:bool,idx,Num_Exps:int,xvar:str,yvar:str,id_col:str,colors,color_col,minimeta:bool,
                   axes, gap_width_percent:float,raw_marker_size:int,**swarm_kwargs):  
+    """The swarm/paired plot function for the horizontal swarm plot
+
+    Args:
+        data (df): _description_
+        paired (bool): Whether is a paired plot or not
+        idx (list): list of the index of the data to be plotted
+        Num_Exps (int): The number of experiments
+        xvar (str): The independent variable
+        yvar (str): The dependent variable
+        id_col (str): The id column for paired data
+        colors (list of colors): color palette used
+        color_col (str): the column name of the color column if provided. Defaults to none.
+        minimeta (bool): Whether is a minimeta experiment or not
+        axes (ax): axes to plot on
+        gap_width_percent (float): The width of the gapped  mean+sd lines. Defaults to 2%.
+        raw_marker_size (int): raw data marker size. Defaults to 6.
+    """
      
     ## Import Modules
     import pandas as pd
@@ -674,7 +691,6 @@ def horizontal_swarm_plot(data,paired:bool,idx,Num_Exps:int,xvar:str,yvar:str,id
         id_vars = [id_col] if paired == True else None
     else:
         id_vars = [id_col,color_col] if paired == True else [color_col]
-
 
     if wide_format == True:
         if paired == False:
@@ -809,22 +825,78 @@ def horizontal_swarm_plot(data,paired:bool,idx,Num_Exps:int,xvar:str,yvar:str,id
 
 
 def horizontal_violin_plot(EffectSizeDataFrame,axes,Num_Exps:int,paired:bool,minimeta:bool,colors,color_col,
-                           contrast_mean_marker_size:float,halfviolin_alpha:float,**violin_kwargs):
+                           contrast_mean_marker_size:float,halfviolin_alpha:float, contrast_bar, contrast_bar_kwargs, 
+                           contrast_dots,contrast_dots_kwargs):
+    """Plots the halfviolins for horizontal plot.
+
+    Args:
+        EffectSizeDataFrame (dabest effect size dataframe): 
+        axes (ax): axes to plot on
+        Num_Exps (int): Number of experiments
+        paired (bool): Whether the data is paired or not
+        minimeta (bool): Whether minimeta analysis or not
+        colors (list of colors): color palette used
+        color_col (str): the column name of the color column if provided. Defaults to none.
+        contrast_mean_marker_size (float): The mean dot marker size. Defaults to 9.
+        halfviolin_alpha (float): The alpha value for the halfviolin. Defaults to 0.8.
+        contrast_bar (bool): Whether contrast bar is shown or not. Defaults to False.
+        contrast_bar_kwargs (dict): Contrast bar kwargs
+        contrast_dots (bool): Whether is contrast dots are shown or not. Defaults to False.
+        contrast_dots_kwargs (dict): Contrast dots kwargs
+    """
     
     ## Import Modules
     import numpy as np
     import dabest
     from dabest import plot_tools
     import matplotlib.patches as mpatches
+    import warnings
+    from .misc_tools import merge_two_dicts
 
     ## Variables
-    contrast_bar = violin_kwargs['contrast_bar']
-    contrast_bar_color = violin_kwargs['contrast_bar_color']
-    contrast_bar_alpha = violin_kwargs['contrast_bar_alpha']
     Adj_Num_Exps    = Num_Exps if paired==True else Num_Exps-1
     Adj_MM_Num_Exps = Adj_Num_Exps if minimeta==False else Adj_Num_Exps+1
     paired_colors   = colors if paired==True else colors[1:]
     experiment = EffectSizeDataFrame.effect_size
+    idx = EffectSizeDataFrame.idx
+    data = EffectSizeDataFrame.dabest_obj.data
+    xvar = EffectSizeDataFrame.dabest_obj.x
+    yvar = EffectSizeDataFrame.dabest_obj.y
+    id_col = EffectSizeDataFrame.dabest_obj.id_col
+
+    ## melt wide data into long format
+    wide_format = True if xvar == None else False
+    if color_col == None:
+        id_vars = [id_col] if paired == True else None
+    else:
+        id_vars = [id_col,color_col] if paired == True else [color_col]
+
+    if wide_format == True:
+        if paired == False:
+            data = pd.melt(data,value_vars=idx[0], id_vars=id_vars)
+        else:
+            unpacked_idx = [item for sublist in idx for item in sublist]
+            data = pd.melt(data,value_vars=unpacked_idx, id_vars=id_vars)
+        yvar='value'
+        xvar='variable'
+
+    ## kwargs
+    ### contrast bar
+    default_contrast_bar_kwargs = {'color':'grey','alpha':0.1,'zorder':0}
+    if contrast_bar_kwargs is None:
+        contrast_bar_kwargs = default_contrast_bar_kwargs
+    else:
+        contrast_bar_kwargs = merge_two_dicts(default_contrast_bar_kwargs,contrast_bar_kwargs)
+
+    ### contrast dots
+    default_contrast_dots_kwargs = {'color':None,'alpha':0.5,'size':3}
+    if contrast_dots_kwargs is None:
+        contrast_dots_kwargs = default_contrast_dots_kwargs
+    else:
+        contrast_dots_kwargs = merge_two_dicts(default_contrast_dots_kwargs,contrast_dots_kwargs)
+    single_color_contrast_dots = contrast_dots_kwargs['color']
+    del contrast_dots_kwargs['color']
+
     ## Select the bootstraps to plot
     bootstraps = [EffectSizeDataFrame.results.bootstraps[n] for n in np.arange(0,Adj_Num_Exps,1)]
     mean_diff  = [EffectSizeDataFrame.results.difference[n] for n in np.arange(0,Adj_Num_Exps,1)]
@@ -837,7 +909,8 @@ def horizontal_violin_plot(EffectSizeDataFrame,axes,Num_Exps:int,paired:bool,min
         bca_low.append(EffectSizeDataFrame.mini_meta_delta.bca_low)
         bca_high.append(EffectSizeDataFrame.mini_meta_delta.bca_high)
 
-    default_violinplot_kwargs = {'widths':1, 'vert':False,'showextrema':False, 'showmedians':False, 'positions': np.arange(0.25,Adj_MM_Num_Exps,1)[::-1]}
+    ## Plot the halfviolins
+    default_violinplot_kwargs = {'widths':1, 'vert':False,'showextrema':False, 'showmedians':False, 'positions': ypos}
     v = axes.violinplot(bootstraps, **default_violinplot_kwargs,)
     dabest.plot_tools.halfviolin(v,  half='top', alpha = halfviolin_alpha)
 
@@ -848,7 +921,7 @@ def horizontal_violin_plot(EffectSizeDataFrame,axes,Num_Exps:int,paired:bool,min
     ## Add Grey bar
     if contrast_bar == True:
         for n,y in zip(np.arange(0,Adj_MM_Num_Exps,1),ypos):
-            axes.add_patch(mpatches.Rectangle((0,y), mean_diff[n], 0.5, color=contrast_bar_color,alpha=contrast_bar_alpha,zorder=0))
+            axes.add_patch(mpatches.Rectangle((0,y), mean_diff[n], 0.5, **contrast_bar_kwargs))
 
     ## Violin colors
     if color_col == None:
@@ -857,6 +930,28 @@ def horizontal_violin_plot(EffectSizeDataFrame,axes,Num_Exps:int,paired:bool,min
     else:
         for n in np.arange(0,Adj_Num_Exps,1):
             axes.collections[n].set_fc('grey')
+
+    ## Delta dots?
+    if contrast_dots == True:
+        if paired == False:
+            UserWarning('Contrast dots are not supported for unpaired data. Plotting without...')
+        else:
+            df_list = []
+            for n,ypos in zip(range(len(idx)), np.arange(0,Adj_MM_Num_Exps,1)[::-1]):
+                _df = data[data[xvar]==idx[n][0]].copy()
+                _df['ypos'] = ypos
+                _df['value_exp'] = data[data[xvar]==idx[n][1]][yvar].values
+                _df['Diff'] = _df['value_exp'] - _df[yvar]
+                df_list.append(_df)
+            delta_dot_df = pd.concat(df_list)
+            
+            if single_color_contrast_dots == None:
+                sns.stripplot(ax=axes,data=delta_dot_df, x='Diff',y='ypos',native_scale=True, orient="h",
+                            palette=colors[::-1] if color_col == None else colors,hue=color_col,legend=False,**contrast_dots_kwargs)
+            else:
+                sns.stripplot(ax=axes,data=delta_dot_df, x='Diff',y='ypos',native_scale=True, orient="h",color=single_color_contrast_dots,
+                              legend=False,**contrast_dots_kwargs) 
+            axes.set_ylabel('')  
 
     ## Parameters for X & Y axes
     if experiment != 'mean_diff':
@@ -874,11 +969,17 @@ def horizontal_table_plot(EffectSizeDataFrame,axes, Num_Exps:int,paired:bool,min
     """Plot the table axes for the horizontal plot
 
     Args:
-        EffectSizeDataFrame (_type_): _description_
-        axes (_type_): _description_
-        Num_Exps (int): _description_
-        paired (bool): _description_
-        minimeta (bool): _description_
+        EffectSizeDataFrame : EffectSizeDataFrame
+        axes (ax): axes to plot on
+        Num_Exps (int): number of experiments
+        paired (bool): whether it is a paired analysis
+        minimeta (bool): whether it is a minimeta analysis
+
+    kwargs:
+        color (str): color of table background
+        alpha (float): alpha value of table background
+        fontsize (int): font size of table text
+        text_color (str): color of table text
     """
 
     ## Import Modules

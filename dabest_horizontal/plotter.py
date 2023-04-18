@@ -1157,10 +1157,14 @@ def EffectSizeDataFramePlotterHorizontal(EffectSizeDataFrame, **kwargs):
         mean_gap_width_percent = 2,
         title = None,
         title_fontsize = 14,
-        horizontal_plot_kwargs = None
-        horizontal_swarmplot_kwargs = None
-        horizontal_violinplot_kwargs = None
-        horizontal_table_kwargs = None
+        horizontal_plot_kwargs = None,
+        horizontal_swarmplot_kwargs = None,
+        horizontal_violinplot_kwargs = None,
+        horizontal_table_kwargs = None,
+        contrast_bar = False,
+        contrast_bar_kwargs = None,
+        contrast_dots = False,
+        contrast_dots_kwargs = None,
     """
     ## Import Modules
     import matplotlib.pyplot as plt
@@ -1187,6 +1191,10 @@ def EffectSizeDataFramePlotterHorizontal(EffectSizeDataFrame, **kwargs):
     title=kwargs["title"]
     title_fontsize = kwargs["title_fontsize"]
     color_col = kwargs["color_col"]
+    contrast_bars = kwargs["contrast_bars"]
+    contrast_dots = kwargs["contrast_dots"]
+    contrast_bars_kwargs = kwargs["contrast_bars_kwargs"]
+    contrast_dots_kwargs = kwargs["contrast_dots_kwargs"]
 
     ## Plot kwargs.
     default_plot_kwargs = {'plot_width_ratios' : [1,0.7,0.3] , 'contrast_wspace' : 0.05}
@@ -1308,8 +1316,7 @@ def EffectSizeDataFramePlotterHorizontal(EffectSizeDataFrame, **kwargs):
     
 
     ## Violin Plot / Contrast Axis
-    default_violin_kwargs = {'contrast_bar':False,'contrast_bar_color':'grey','contrast_bar_alpha':0.1,'contrast_xlim': None,
-                             'contrast_xlabel_fontsize':10}
+    default_violin_kwargs = {'contrast_xlim': None,'contrast_xlabel_fontsize':10}
 
     if kwargs["horizontal_violinplot_kwargs"] is None:
         violin_kwargs = default_violin_kwargs
@@ -1318,7 +1325,7 @@ def EffectSizeDataFramePlotterHorizontal(EffectSizeDataFrame, **kwargs):
 
     horizontal_violin_plot(EffectSizeDataFrame=EffectSizeDataFrame, axes=contrast_axes, Num_Exps=Num_Exps, paired=paired, 
                    minimeta=minimeta, colors=halfviolin_colors,color_col=color_col,contrast_mean_marker_size=es_marker_size,halfviolin_alpha=halfviolin_alpha,
-                   **violin_kwargs)
+                   contrast_bar=contrast_bars, contrast_dots=contrast_dots, contrast_bar_kwargs=contrast_bars_kwargs, contrast_dots_kwargs=contrast_dots_kwargs)
         
     contrast_xlim,contrast_xlabel_fontsize = violin_kwargs['contrast_xlim'],violin_kwargs['contrast_xlabel_fontsize']
     if type(contrast_xlim)==tuple or type(contrast_xlim)==list and len(contrast_xlim)==2:
@@ -1339,4 +1346,9 @@ def EffectSizeDataFramePlotterHorizontal(EffectSizeDataFrame, **kwargs):
         table_kwargs = merge_two_dicts(default_table_kwargs, kwargs["horizontal_table_kwargs"])
 
     horizontal_table_plot(EffectSizeDataFrame=EffectSizeDataFrame,axes=table_axes,Num_Exps=Num_Exps,paired=paired,minimeta=minimeta,**table_kwargs)
+
+    if contrast_dots==True and paired==True:
+        rawdata_axes.set_ylim(-0.2,Num_Exps+1.2 if minimeta==True else Num_Exps+0.2)
+        rawdata_axes.contrast_axes.set_ylim(-0.2,Num_Exps+1.2 if minimeta==True else Num_Exps+0.2)
+        rawdata_axes.table_axes.set_ylim(-0.2,Num_Exps+1.2 if minimeta==True else Num_Exps+0.2)
     return fig
