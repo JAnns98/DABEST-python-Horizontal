@@ -1168,33 +1168,82 @@ def EffectSizeDataFramePlotterHorizontal(EffectSizeDataFrame, **kwargs):
     """
     ## Import Modules
     import matplotlib.pyplot as plt
+    import matplotlib.patches as mpatches
     import seaborn as sns
     import numpy as np
+    import pandas as pd
+    import warnings
     from .misc_tools import merge_two_dicts
-    from .plot_tools import horizontal_colormaker, horizontal_swarm_plot, horizontal_violin_plot, horizontal_table_plot
+    from .plot_tools import horizontal_colormaker,halfviolin
 
     ## Variables
+    ### General Variables
+    ax = kwargs["ax"] 
+    title=kwargs["title"]
+    title_fontsize = kwargs["title_fontsize"]
+    fig_size = kwargs["fig_size"]
+    face_color = kwargs["face_color"]   
     show_mini_meta = kwargs["show_mini_meta"]
+    dpi = kwargs["dpi"]
+    ### Color palette Variables
+    color_col = kwargs["color_col"]    
     custom_palette = kwargs["custom_palette"]
     swarm_desat = kwargs["swarm_desat"]
     halfviolin_desat = kwargs["halfviolin_desat"]
-    dpi = kwargs["dpi"]
-    fig_size = kwargs["fig_size"]
-    face_color = kwargs["face_color"]
+    ### SwarmPlot Variables
     mean_gap_width_percent = kwargs["mean_gap_width_percent"]
-    raw_marker_size = kwargs["raw_marker_size"]
-    swarm_label = kwargs["swarm_label"]
+    raw_marker_size = kwargs["raw_marker_size"]    
+    swarm_label = kwargs["swarm_label"]    
+    ### ViolinPlot Variables
     es_marker_size = kwargs["es_marker_size"]
     halfviolin_alpha = kwargs["halfviolin_alpha"]
     contrast_label = kwargs["contrast_label"]
-    ax = kwargs["ax"]
-    title=kwargs["title"]
-    title_fontsize = kwargs["title_fontsize"]
-    color_col = kwargs["color_col"]
     contrast_bars = kwargs["contrast_bars"]
     contrast_dots = kwargs["contrast_dots"]
     contrast_bars_kwargs = kwargs["contrast_bars_kwargs"]
     contrast_dots_kwargs = kwargs["contrast_dots_kwargs"]
+    ### Dabest Variables
+    dabest_obj = EffectSizeDataFrame.dabest_obj
+    data = dabest_obj.data
+    xvar = dabest_obj.x
+    yvar = dabest_obj.y
+    idx = dabest_obj.idx
+    unpacked_idx = [item for sublist in idx for item in sublist]
+    id_col = dabest_obj.id_col
+    experiment = EffectSizeDataFrame.effect_size
+    paired = True if EffectSizeDataFrame.is_paired == 'sequential' or EffectSizeDataFrame.is_paired =='baseline' else False
+    minimeta = True if EffectSizeDataFrame.mini_meta == True and show_mini_meta==True else False
+    multi_unpaired_control = True if not paired and len(idx)>1 else False
+    multi_paired_control = True if paired and any(len(x)>2 for x in idx) else False
+
+    ### Num Exps
+    number_of_groups = len(idx)
+    Num_of_Exps_in_each_group = []
+    for n in range(number_of_groups):
+        Num_of_Exps_in_each_group.append(len(idx[n]))
+    if paired:
+        Num_Exps = len(unpacked_idx)
+        if multi_paired_control:
+            Num_of_contrasts = len(unpacked_idx) - number_of_groups
+        else:
+            Num_of_contrasts = number_of_groups
+    else:
+        Num_Exps = len(unpacked_idx)
+        Num_of_contrasts = len(unpacked_idx) - number_of_groups
+    MM_Adj_Num_Exps = Num_Exps + 1 if minimeta else Num_Exps  # Mini-Meta Adjustment
+    MM_Adj_Num_of_contrasts = Num_of_contrasts + 1 if minimeta else Num_of_contrasts  # Mini-Meta Adjustment
+
+    ## Convert wide format to long format.
+    wide_format = True if xvar == None else False
+    if color_col == None:
+        id_vars = [id_col] if paired else None
+    else:
+        id_vars = [id_col,color_col] if paired else [color_col]
+
+    if wide_format:
+        data = pd.melt(data,value_vars=unpacked_idx, id_vars=id_vars)
+        yvar='value'
+        xvar='variable'
 
     ## Plot kwargs.
     default_plot_kwargs = {'plot_width_ratios' : [1,0.7,0.3] , 'contrast_wspace' : 0.05}
@@ -1212,57 +1261,43 @@ def EffectSizeDataFramePlotterHorizontal(EffectSizeDataFrame, **kwargs):
     else:
         legend_kwargs = merge_two_dicts(default_legend_kwargs,kwargs["legend_kwargs"])
 
-    dabest_obj = EffectSizeDataFrame.dabest_obj
-    data = dabest_obj.data
-    xvar = dabest_obj.x
-    yvar = dabest_obj.y
-    idx = dabest_obj.idx
-    id_col = dabest_obj.id_col
-    paired = True if EffectSizeDataFrame.is_paired == 'sequential' or EffectSizeDataFrame.is_paired =='baseline' else False
-    minimeta = True if EffectSizeDataFrame.mini_meta == True & show_mini_meta==True else False
-    Num_Exps = len(idx[0]) if paired==False else len(idx)
-
     ## Colors
     if color_col == None:
-        _colors,desat_colors = horizontal_colormaker(number=Num_Exps,custom_pal=custom_palette,desat_level=swarm_desat)
-        _colors,halfviolin_colors = horizontal_colormaker(number=Num_Exps,custom_pal=custom_palette,desat_level=halfviolin_desat)
-
+        swarm_colors = horizontal_colormaker(number=number_of_groups if paired else Num_Exps,custom_pal=custom_palette,desat_level=swarm_desat)
+        halfviolin_colors = horizontal_colormaker(number=number_of_groups if paired else Num_Exps,custom_pal=custom_palette,desat_level=halfviolin_desat)
     else:
-        color_col_nums = len(data[color_col].unique())
-        if color_col_nums == 0:
-            raise ValueError('Color column is empty or does not exist.')
+        if color_col not in data.columns:
+            raise KeyError("`{}` is not a column in the data.".format(color_col))
         else:
-            _colors,desat_colors = horizontal_colormaker(number=color_col_nums,custom_pal=custom_palette,desat_level=swarm_desat)
-            _colors,halfviolin_colors = horizontal_colormaker(number=color_col_nums,custom_pal=custom_palette,desat_level=halfviolin_desat)
+            color_col_nums = len(data[color_col].unique())
+            if color_col_nums == 0:
+                raise ValueError('Color column is empty or does not exist.')
+            else:
+                swarm_colors = horizontal_colormaker(number=color_col_nums,custom_pal=custom_palette,desat_level=swarm_desat)
+                halfviolin_colors = horizontal_colormaker(number=color_col_nums,custom_pal=custom_palette,desat_level=halfviolin_desat)
 
     ## Checks
-    ### Check if mini-meta analysis is available
-    if EffectSizeDataFrame.effect_size != 'mean_diff' and EffectSizeDataFrame.mini_meta == True:
-        raise ValueError('Mini-meta analysis is only available for Mean Diff analysis.')
-    else:
-        minimeta = True if EffectSizeDataFrame.mini_meta == True else False
+    assert (not EffectSizeDataFrame.delta2), 'Horizontal Plot is currently unavailable for delta-delta experiments.'  ### Check if delta-delta experiment (not available)
+
+    if EffectSizeDataFrame.proportional:   ### Check if proportional plot desired (not available yet)
+        raise NotImplementedError('Horizontal Plot is currently unavailable for proportional data.')
     
-    ### Check if mini-meta and unpaired (not available)
-    if minimeta == True and paired == False:
+    if experiment != 'mean_diff' and minimeta:   ### Check if mini-meta analysis is available
+        raise ValueError('Mini-meta analysis is only available for Mean Diff analysis.')
+    
+    if minimeta and not paired:   ### Check if mini-meta and unpaired (not available)
         raise ValueError('Mini-meta analysis is only available for paired data.')
     
-    ### Check if mini-meta and repeated measures (not available)
-    if paired == True and any(len(x)>2 for x in EffectSizeDataFrame.idx):
-        raise ValueError('Horizontal Plot is currently unavailable for repeated measures.')
+    if paired and minimeta and any(len(x)>2 for x in idx):   ### Check if mini-meta and repeated measures (not available)
+        raise ValueError('Minimeta is unavailable for repeated measures.')
 
     ## Create Figure if no axes are specified
     if ax == None:
-        New_Num_Exps = Num_Exps+1 if minimeta==True else Num_Exps
-        if fig_size == None:
-            fig, ax = plt.subplots(1,1,figsize=(8, 1+(New_Num_Exps*3)/7),dpi=dpi)
-        else:
-            fig, ax = plt.subplots(1,1,figsize=fig_size,dpi=dpi)
-
+        frac = 0.3 if paired else 0.5
+        fig, ax = plt.subplots(1,1,figsize=(7,1+(frac*MM_Adj_Num_Exps)) if fig_size==None else fig_size,dpi=dpi)
         if title != None:
             fig.suptitle(title,fontsize=title_fontsize)
-    
-    if face_color != None:
-        ax.set_facecolor(face_color)
+    ax.set_facecolor('white' if face_color==None else face_color)
 
     ## Inset Axes
     ax_position = ax.get_position()
@@ -1276,29 +1311,352 @@ def EffectSizeDataFramePlotterHorizontal(EffectSizeDataFrame, **kwargs):
     fig = rawdata_axes.get_figure()
 
     ## Plot the swarm data
-    default_swarm_kwargs = {'paired_line_alpha' : 0.3,'paired_means_offset': (0.9,0.1),'paired_dot': False, 
-                            'dot_alpha': 0.8,'xlim': None, 'paired_dot_size':4, 'paired_dot_alpha':0.4,
-                            'xlabel_fontsize': 10,'ylabel_fontsize': 12, 'ylabel_show_samplesize': False}
+    default_swarm_kwargs = {'paired_line_alpha' : 0.3,'paired_means_offset': 0.25,'dot_alpha': 0.8,'xlim': None,
+                            'xlabel_fontsize': 11,'ylabel_fontsize': 11, 'ylabel_show_samplesize': False}
 
     if kwargs["horizontal_swarmplot_kwargs"] is None:
         swarm_kwargs = default_swarm_kwargs
     else:
         swarm_kwargs = merge_two_dicts(default_swarm_kwargs, kwargs["horizontal_swarmplot_kwargs"])
 
-    horizontal_swarm_plot(axes=rawdata_axes,data=data,paired=paired,idx=idx,Num_Exps=Num_Exps,xvar=xvar,yvar=yvar,id_col=id_col,colors=desat_colors,
-                          color_col=color_col,minimeta=minimeta,gap_width_percent=mean_gap_width_percent,raw_marker_size=raw_marker_size, **swarm_kwargs)
+    swarm_paired_line_alpha = swarm_kwargs['paired_line_alpha']
+    swarm_ylabel_show_samplesize = swarm_kwargs['ylabel_show_samplesize']
+    swarm_paired_means_offset = swarm_kwargs['paired_means_offset']
+    swarm_ylabel_fontsize = swarm_kwargs['ylabel_fontsize']
+    dot_alpha = swarm_kwargs['dot_alpha']
+    swarm_xlim = swarm_kwargs['xlim']
+    swarm_xlabel_fontsize = swarm_kwargs['xlabel_fontsize']
 
-    swarm_xlim,swarm_xlabel_fontsize = swarm_kwargs['xlim'],swarm_kwargs['xlabel_fontsize']
+    ### Unpaired
+    if not paired:
+        ordered_labels = unpacked_idx
+        df_list = []
+        for i,ypos in zip(ordered_labels,np.arange(1,Num_Exps+1,1)[::-1]):
+            _df = data[data[xvar]==i].copy()
+            _df['ypos'] = ypos
+            df_list.append(_df)
+        ordered_df = pd.concat(df_list)
+        sns.swarmplot(ax=rawdata_axes,data=ordered_df, x=yvar,y='ypos',native_scale=True, orient="h",palette=swarm_colors[::-1] if color_col == None else swarm_colors,
+                    alpha=dot_alpha,size=raw_marker_size,hue=color_col)
+        rawdata_axes.set_ylabel('')
+
+    ### Paired
+    else:
+        data.sort_values(by=[id_col], inplace=True)
+        #### Deal with color_col
+        if color_col != None:
+            color_col_ind = data[color_col].unique()
+            color_col_dict = {}
+            for n,c in zip(color_col_ind,swarm_colors):
+                color_col_dict.update({n: c})
+
+        #### Create the data tuples & Mean + SD tuples
+        output_x, output_y=[],[]
+        means,sd, color_col_names=[],[],[]
+
+        startpos = MM_Adj_Num_Exps
+        for n in np.arange(0,number_of_groups,1):
+            samplesize = len(data[data[xvar].str.contains(idx[n][0])])
+            y_list,x_list=[],[]
+            mean_list,sd_list=[],[]
+            for num, i in enumerate(idx[n]):
+                y_list.append(samplesize*[startpos - num])
+                x_list.append(data[data[xvar].str.contains(i)][yvar])
+                mean_list.append(data[data[xvar].str.contains(i)][yvar].mean())
+                sd_list.append(data[data[xvar].str.contains(i)][yvar].std())
+            startpos = startpos - Num_of_Exps_in_each_group[n]
+
+            output_y.append(np.array(y_list))
+            output_x.append(np.array(x_list))
+            means.append(np.array(mean_list))
+            sd.append(np.array(sd_list))
+            
+            if color_col != None:
+                color_col_names.append(np.array(data[data[xvar].str.contains(idx[n][0])][color_col]))
+
+        #### Plot the pairs of data
+        if color_col != None:
+            for x, y, cs in zip(output_x,output_y,color_col_names):  
+                color_cols = [color_col_dict[i] for i in cs]
+                for n,c in zip(range(0,len(x[0])),color_cols):
+                    for length in range(0,(len(x)-1)):
+                        rawdata_axes.plot([x[length][n],x[length+1][n]],[y[length][n],y[length+1][n]],color=c, alpha=swarm_paired_line_alpha)
+        else:
+            for x, y, c in zip(output_x,output_y,swarm_colors):  
+                rawdata_axes.plot(x, y,color=c, alpha=swarm_paired_line_alpha)
+
+        #### Plot Mean & SD tuples
+        if not multi_paired_control:
+            import matplotlib.lines as mlines
+            ax_ylims = rawdata_axes.get_ylim()
+            ax_yspan = np.abs(ax_ylims[1] - ax_ylims[0])
+            gap_width = ax_yspan * mean_gap_width_percent/100
+
+            mean_colors = swarm_colors if color_col == None else number_of_groups*['black']
+            for m,n,c in zip(np.arange(0,number_of_groups,1),np.arange(0,MM_Adj_Num_Exps,2)[::-1],mean_colors):
+                for a,b,d in zip([0,1],[2,1],[swarm_paired_means_offset,-swarm_paired_means_offset]):
+                    b=b-1 if minimeta else b
+                    mean_to_high = mlines.Line2D([means[m][a]+gap_width, means[m][a]+sd[m][a]],[n+b+d, n+b+d],color=c)
+                    rawdata_axes.add_line(mean_to_high) 
+
+                    low_to_mean = mlines.Line2D([means[m][a]-sd[m][a], means[m][a]-gap_width],[n+b+d, n+b+d],color=c)
+                    rawdata_axes.add_line(low_to_mean)
+                    
+    ## Violin Plot / Contrast Axis
+    ### kwargs
+    default_violin_kwargs = {'contrast_xlim': None,'contrast_xlabel_fontsize':12}
+    if kwargs["horizontal_violinplot_kwargs"] is None:
+        violin_kwargs = default_violin_kwargs
+    else:
+        violin_kwargs = merge_two_dicts(default_violin_kwargs, kwargs["horizontal_violinplot_kwargs"])
+    contrast_xlim = violin_kwargs['contrast_xlim']
+    contrast_xlabel_fontsize = violin_kwargs['contrast_xlabel_fontsize']
+
+    #### contrast bar
+    default_contrast_bar_kwargs = {'color':'grey','alpha':0.1,'zorder':0}
+    if contrast_bars_kwargs is None:
+        contrast_bars_kwargs = default_contrast_bar_kwargs
+    else:
+        contrast_bars_kwargs = merge_two_dicts(default_contrast_bar_kwargs,contrast_bars_kwargs)
+
+    #### contrast dots
+    default_contrast_dots_kwargs = {'color':None,'alpha':0.5,'size':3}
+    if contrast_dots_kwargs is None:
+        contrast_dots_kwargs = default_contrast_dots_kwargs
+    else:
+        contrast_dots_kwargs = merge_two_dicts(default_contrast_dots_kwargs,contrast_dots_kwargs)
+    single_color_contrast_dots = contrast_dots_kwargs['color']
+    del contrast_dots_kwargs['color']
+
+    ### Select the bootstraps to plot
+    bootstraps = [EffectSizeDataFrame.results.bootstraps[n] for n in range(Num_of_contrasts)]
+    mean_diff  = [EffectSizeDataFrame.results.difference[n] for n in range(Num_of_contrasts)]
+    bca_low    = [EffectSizeDataFrame.results.bca_low[n] for n in range(Num_of_contrasts)]
+    bca_high   = [EffectSizeDataFrame.results.bca_high[n] for n in range(Num_of_contrasts)]
+
+    if paired:
+        if multi_paired_control:
+            ypos,contrast_locs=[],[]
+            start=1
+            for n in Num_of_Exps_in_each_group:
+                for i in range(n-1):
+                    end = start + i
+                    ypos.append(np.arange(1,Num_Exps+1,1)[::-1][end])
+                    contrast_locs.append(end)
+                start =+ end + 2
+        else:
+            if minimeta:
+                ypos = np.insert(np.arange(2,MM_Adj_Num_Exps,2,dtype=float),0,0.25)[::-1]
+            else:   
+                ypos = np.arange(1,MM_Adj_Num_Exps+1,2)[::-1]
+    else:
+        if multi_unpaired_control:
+            ypos,contrast_locs=[],[]
+            start=1
+            for n in Num_of_Exps_in_each_group:
+                for i in range(n-1):
+                    end = start + i
+                    ypos.append(np.arange(1,Num_Exps+1,1)[::-1][end])
+                    contrast_locs.append(end)
+                start =+ end + 2
+        else:
+            ypos = np.arange(1,Num_of_contrasts+1,1)[::-1]
+    if minimeta:
+        bootstraps.append(EffectSizeDataFrame.mini_meta_delta.bootstraps_weighted_delta)
+        mean_diff.append(EffectSizeDataFrame.mini_meta_delta.difference)
+        bca_low.append(EffectSizeDataFrame.mini_meta_delta.bca_low)
+        bca_high.append(EffectSizeDataFrame.mini_meta_delta.bca_high)
+
+    ### Plot the halfviolins
+    default_violinplot_kwargs = {'widths': 1 if multi_paired_control or not paired else 2, 'vert':False,'showextrema':False, 'showmedians':False, 'positions': ypos}
+    v = rawdata_axes.contrast_axes.violinplot(bootstraps, **default_violinplot_kwargs,)
+    halfviolin(v,  half='top', alpha = halfviolin_alpha)
+
+    ### Plot mean diff and bca_low and bca_high
+    rawdata_axes.contrast_axes.plot(mean_diff,ypos, 'k.', markersize = es_marker_size)
+    rawdata_axes.contrast_axes.plot([bca_low, bca_high], [ypos, ypos],'k', linewidth = 2.5)
+
+    ### Add Grey bar
+    if contrast_bars:
+        for n,y in zip(np.arange(0,MM_Adj_Num_of_contrasts,1),ypos):
+            rawdata_axes.contrast_axes.add_patch(mpatches.Rectangle((0,y), mean_diff[n], 0.5 if multi_paired_control or not paired else 1, **contrast_bars_kwargs))
+
+    ### Violin colors
+    if color_col == None:
+        if multi_unpaired_control:
+            for n,loc in zip(np.arange(0,Num_of_contrasts,1), contrast_locs):
+                rawdata_axes.contrast_axes.collections[n].set_fc(halfviolin_colors[loc])      
+        elif multi_paired_control:
+            start = 0
+            for n,c in zip(np.arange(0,number_of_groups,1),halfviolin_colors):
+                for num, i in enumerate(idx[n][:-1]):
+                    rawdata_axes.contrast_axes.collections[start+num].set_fc(c)
+                start += (len(idx[n])-1)
+        else:
+            for n,c in zip(np.arange(0,Num_of_contrasts,1),halfviolin_colors if paired else halfviolin_colors[1:]):
+                rawdata_axes.contrast_axes.collections[n].set_fc(c)
+    else:
+        for n in np.arange(0,Num_of_contrasts,1):
+            rawdata_axes.contrast_axes.collections[n].set_fc('grey')
+
+    ### Delta dots?
+    if contrast_dots:
+        if not paired or multi_paired_control:
+            warnings.warn('Contrast dots are not supported for unpaired data or paired repeated measures. Plotting without...', UserWarning)
+        else:
+            df_list = []
+            for n,ypos_dots in zip(range(len(idx)), ypos):
+                _df = data[data[xvar]==idx[n][0]].copy()
+                _df['ypos_dots'] = ypos_dots-0.5
+                _df['value_exp'] = data[data[xvar]==idx[n][1]][yvar].values
+                _df['Diff'] = _df['value_exp'] - _df[yvar]
+                df_list.append(_df)
+            delta_dot_df = pd.concat(df_list)
+            
+            if single_color_contrast_dots == None:
+                sns.stripplot(ax=rawdata_axes.contrast_axes,data=delta_dot_df, x='Diff',y='ypos_dots',native_scale=True, orient="h",
+                            palette=halfviolin_colors[::-1] if color_col == None else halfviolin_colors,hue=color_col,legend=False,**contrast_dots_kwargs)
+            else:
+                sns.stripplot(ax=rawdata_axes.contrast_axes,data=delta_dot_df, x='Diff',y='ypos_dots',native_scale=True, orient="h",color=single_color_contrast_dots,
+                              legend=False,**contrast_dots_kwargs) 
+            rawdata_axes.contrast_axes.set_ylabel('')  
+
+    ## Table axes
+    ### Kwargs
+    default_table_kwargs = {'color' : 'yellow','alpha' :0.2,'fontsize' : 12,'text_color' : 'black', 'text_units' : None,'paired_gap_dashes' : False}
+    if kwargs["horizontal_table_kwargs"] is None:
+        table_kwargs = default_table_kwargs
+    else:
+        table_kwargs = merge_two_dicts(default_table_kwargs, kwargs["horizontal_table_kwargs"])
+    table_color = table_kwargs['color']
+    table_alpha = table_kwargs['alpha']
+    table_font_size = table_kwargs['fontsize'] if table_kwargs['text_units'] == None else table_kwargs['fontsize']-2
+    table_text_color = table_kwargs['text_color']
+    text_units = '' if table_kwargs['text_units'] == None else table_kwargs['text_units']
+    table_gap_dashes = table_kwargs['paired_gap_dashes']
+    
+    ### Create a table of deltas
+    cols=['Δ','N']
+    lst = []
+    for n in np.arange(0,Num_of_contrasts,1):
+        lst.append([EffectSizeDataFrame.results.difference[n],0])
+    if minimeta:
+        lst.append([EffectSizeDataFrame.mini_meta_delta.difference,0])    
+    tab = pd.DataFrame(lst, columns=cols)
+
+    ### Plot the text
+    for i,loc in zip(tab.index,ypos):
+        if minimeta:
+            loc_new = loc if loc != 0.25 else loc+0.25
+            rawdata_axes.table_axes.text(0.5, loc_new, "{:+.2f}".format(tab.iloc[i,0])+text_units,ha="center", va="center", color=table_text_color,size=table_font_size)
+        else:
+            rawdata_axes.table_axes.text(0.5, loc, "{:+.2f}".format(tab.iloc[i,0])+text_units,ha="center", va="center", color=table_text_color,size=table_font_size)
+
+    ### Plot the dashes
+    if minimeta:
+        no_contrast_positions = list(set([int(x-0.5) for x in ypos[:-1]]) ^ set(np.arange(2,Num_Exps+2,1)))
+    else:
+        no_contrast_positions = list(set([int(x-0.5) for x in ypos]) ^ set(np.arange(0,Num_Exps,1)))
+
+    if table_gap_dashes or not paired or multi_paired_control:
+        for i in no_contrast_positions:
+            rawdata_axes.table_axes.text(0.5, i+1, "—",ha="center", va="center", color=table_text_color,size=table_font_size)
+
+    ### Parameters for table
+    rawdata_axes.table_axes.axvspan(0, 1, facecolor=table_color, alpha=table_alpha)  #### Plot the background color
+    rawdata_axes.table_axes.set_xticks([0.5])
+    rawdata_axes.table_axes.set_xticklabels([])
+    
+    ## Final parameters
+    ### Tick-params
+    rawdata_axes.tick_params(left=True)
+    rawdata_axes.contrast_axes.tick_params(left=False)
+    rawdata_axes.table_axes.tick_params(left=False, bottom=False)
+
+    ### X-label
+    rawdata_axes.set_xlabel('Metric' if swarm_label == None else swarm_label,fontsize=swarm_xlabel_fontsize)
+    rawdata_axes.contrast_axes.set_xlabel(contrast_label if contrast_label != None else 'Mean difference' if experiment == 'mean_diff' else experiment,fontsize=contrast_xlabel_fontsize)
+    rawdata_axes.table_axes.set_xlabel('Δ')
+
+    ### X-lim
     if type(swarm_xlim)==tuple or type(swarm_xlim)==list and len(swarm_xlim)==2:
         rawdata_axes.set_xlim(swarm_xlim[0],swarm_xlim[1])  
-    elif swarm_xlim !=None:
+    elif swarm_xlim != None:
         raise ValueError('swarm_xlim should be a tuple or list of length 2. Defaulting to automatic scaling.')  
 
-    if swarm_label != None:
-        rawdata_axes.set_xlabel(swarm_label,fontsize=swarm_xlabel_fontsize)
+    if type(contrast_xlim)==tuple or type(contrast_xlim)==list and len(contrast_xlim)==2:
+        rawdata_axes.contrast_axes.set_xlim(contrast_xlim[0],contrast_xlim[1])  
+    elif contrast_xlim != None:
+        raise ValueError('contrast_xlim should be a tuple or list and of length 2. Defaulting to automatic scaling.')  
     
+    ### Y-ticks 
+    yticklabels=[]
+    if paired:
+        rawdata_axes.set_yticks(np.arange(1,MM_Adj_Num_Exps+1,1))
+        for n in np.arange(0,number_of_groups,1):
+            for num, i in enumerate(idx[n]):
+                if swarm_ylabel_show_samplesize:
+                    ss = len(data[data[xvar].str.contains(i)][yvar])
+                    yticklabels.append(i + ' (n='+str(ss)+')')
+                else:
+                    yticklabels.append(i)
+        if minimeta:
+            rawdata_axes.set_yticks(np.insert(np.arange(2,MM_Adj_Num_Exps+1,1,dtype=float),0,0.5))
+            yticklabels.append('Weighted Mean')
+    else:
+        rawdata_axes.set_yticks(np.arange(1,MM_Adj_Num_Exps+1,1))
+        for n in np.arange(0,Num_Exps,1):
+            if swarm_ylabel_show_samplesize:
+                ss = len(data[data[xvar].str.contains(unpacked_idx[n])][yvar])
+                yticklabels.append(unpacked_idx[n] + '\n' + ' (n='+str(ss)+')')
+            else:
+                yticklabels.append(unpacked_idx[n])   
+
+    rawdata_axes.set_yticklabels(yticklabels[::-1],ma='center',fontsize = swarm_ylabel_fontsize)
+    rawdata_axes.contrast_axes.set_yticks([])
+    rawdata_axes.table_axes.set_yticks([])
+
+    ### Y-lim
+    if paired:
+        for ax in [rawdata_axes,rawdata_axes.contrast_axes,rawdata_axes.table_axes]:
+            if minimeta:
+                ax.set_ylim(-0.25,Num_Exps+2)
+            else:
+                ax.set_ylim(0 if contrast_dots else 0.5,Num_Exps+0.5)
+    else:
+        for ax in [rawdata_axes,rawdata_axes.contrast_axes,rawdata_axes.table_axes]:
+            ax.set_ylim(0.5,Num_Exps+0.5)
+    rawdata_axes.contrast_axes.plot([0, 0], rawdata_axes.contrast_axes.get_ylim(), 'k', linewidth = 1)
+
+    ### y-spines
+    sns.despine(ax=rawdata_axes)
+    sns.despine(ax=rawdata_axes.contrast_axes, left=True)
+    sns.despine(ax=rawdata_axes.table_axes, left=True, bottom=True)
+    spine_xpos = rawdata_axes.get_xlim()[0]
+    rawdata_axes.set_xlim(spine_xpos,rawdata_axes.get_xlim()[1])
+    rawdata_axes.spines[['left']].set_visible(False) 
+
+    if paired:
+        line_start=2 if minimeta else 1
+        end=0
+        for n in Num_of_Exps_in_each_group[::-1]:
+            line_end=line_start+(n-1)
+            rawdata_axes.vlines(spine_xpos, line_start, line_end, colors='black', linestyles='solid', label='',linewidths=1)
+            line_start=line_end+1
+    else:
+        if multi_unpaired_control:
+            line_start=1
+            end=0
+            for n in Num_of_Exps_in_each_group[::-1]:
+                line_end=line_start+(n-1)
+                rawdata_axes.vlines(spine_xpos, line_start, line_end, colors='black', linestyles='solid', label='',linewidths=1)
+                line_start=line_end+1
+        else:
+            rawdata_axes.vlines(spine_xpos, 1, Num_Exps, colors='black', linestyles='solid', label='',linewidths=1)
+            
+    ### Legend
     if color_col != None:
-        if paired == False:
+        if not paired:
             h1, l1 = rawdata_axes.get_legend_handles_labels()
             rawdata_axes.table_axes.legend(h1, l1,bbox_to_anchor=(0.8, 1.0), title=color_col,**legend_kwargs)
             rawdata_axes.legend().remove()
@@ -1306,44 +1664,9 @@ def EffectSizeDataFramePlotterHorizontal(EffectSizeDataFrame, **kwargs):
             color_col_ind = data[color_col].unique()
             from matplotlib.lines import Line2D
             handles=[]
-            for n,c in zip(color_col_ind,desat_colors):
+            for n,c in zip(color_col_ind,swarm_colors):
                 handles.append(Line2D([0], [0], label=n, color=c))
             rawdata_axes.table_axes.legend(handles=handles,bbox_to_anchor=(0.85, 1.0), handlelength=1, title=color_col,**legend_kwargs)
     
-    ## Violin Plot / Contrast Axis
-    default_violin_kwargs = {'contrast_xlim': None,'contrast_xlabel_fontsize':10}
-
-    if kwargs["horizontal_violinplot_kwargs"] is None:
-        violin_kwargs = default_violin_kwargs
-    else:
-        violin_kwargs = merge_two_dicts(default_violin_kwargs, kwargs["horizontal_violinplot_kwargs"])
-
-    horizontal_violin_plot(EffectSizeDataFrame=EffectSizeDataFrame, axes=contrast_axes, Num_Exps=Num_Exps, paired=paired, 
-                   minimeta=minimeta, colors=halfviolin_colors,color_col=color_col,contrast_mean_marker_size=es_marker_size,halfviolin_alpha=halfviolin_alpha,
-                   contrast_bar=contrast_bars, contrast_dots=contrast_dots, contrast_bar_kwargs=contrast_bars_kwargs, contrast_dots_kwargs=contrast_dots_kwargs)
-        
-    contrast_xlim,contrast_xlabel_fontsize = violin_kwargs['contrast_xlim'],violin_kwargs['contrast_xlabel_fontsize']
-    if type(contrast_xlim)==tuple or type(contrast_xlim)==list and len(contrast_xlim)==2:
-        rawdata_axes.contrast_axes.set_xlim(contrast_xlim[0],contrast_xlim[1])  
-    elif contrast_xlim !=None:
-        raise ValueError('contrast_xlim should be a tuple or list of length 2. Defaulting to automatic scaling.')  
-
-    if contrast_label != None:
-        rawdata_axes.contrast_axes.set_xlabel(contrast_label,fontsize=contrast_xlabel_fontsize)
-
-    ## Plot the Table
-    default_table_kwargs = {'color' : 'yellow','alpha' :0.2,'fontsize' : 12,'text_color' : 'black'}
-
-    if kwargs["horizontal_table_kwargs"] is None:
-        table_kwargs = default_table_kwargs
-    else:
-        table_kwargs = merge_two_dicts(default_table_kwargs, kwargs["horizontal_table_kwargs"])
-
-    horizontal_table_plot(EffectSizeDataFrame=EffectSizeDataFrame,axes=table_axes,Num_Exps=Num_Exps,paired=paired,minimeta=minimeta,**table_kwargs)
-
-    if contrast_dots==True and paired==True:
-        rawdata_axes.set_ylim(-0.2,Num_Exps+1.2 if minimeta==True else Num_Exps+0.2)
-        rawdata_axes.contrast_axes.set_ylim(-0.2,Num_Exps+1.2 if minimeta==True else Num_Exps+0.2)
-        rawdata_axes.table_axes.set_ylim(-0.2,Num_Exps+1.2 if minimeta==True else Num_Exps+0.2)
-        
+    ## Return fig
     return fig

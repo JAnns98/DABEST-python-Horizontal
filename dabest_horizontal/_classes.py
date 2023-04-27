@@ -3078,19 +3078,19 @@ class EffectSizeDataFrame(object):
             This will change the appearance of the swarmplot in the horizontal plot. 
             Pass any keyword arguments accepted by plot_tools.horizontal_swarm_plot() 
             function here, as a dict. If None, the following keywords are passed to plot:
-            {'paired_line_alpha' : 0.1,'paired_means_offset': (0.9,0.1),'paired_dot': False,
-            'dot_alpha': 0.8,'xlim': None, 'paired_dot_size': 4, 'paired_dot_alpha' : 0.4,
-            'xlabel_fontsize': 10,'ylabel_fontsize': 12, 'ylabel_show_samplesize': False}
+            {'paired_line_alpha' : 0.1,'paired_means_offset': 0.25,'dot_alpha': 0.8,
+            'xlim': None, 'xlabel_fontsize': 11,'ylabel_fontsize': 11, 'ylabel_show_samplesize': False}
         horizontal_violinplot_kwargs : dict, default None
             This will change the appearance of the violinplot in the horizontal plot. 
             Pass any keyword arguments accepted by plot_tools.horizontal_violin_plot() 
             function here, as a dict. If None, the following keywords are passed to plot:
-            {'contrast_xlim': None,'contrast_xlabel_fontsize':10}    
+            {'contrast_xlim': None,'contrast_xlabel_fontsize':12}    
         horizontal_table_kwargs : dict, default None
             This will change the appearance of the table in the horizontal plot. 
             Pass any keyword arguments accepted by plot_tools.horizontal_table() 
             function here, as a dict. If None, the following keywords are passed to plot:
-            {'color' : 'yellow','alpha' :0.2,'font_size' : 12,'text_color' : 'black'}
+            {'color' : 'yellow','alpha' :0.2,'font_size' : 12,'text_color' : 'black',
+            text_units: None, 'paired_gap_dashes' : False,}
         contrast_bars : bool, default False
             This will add contrast bars between the origin and the half violinplots 
             in the horizontal plot.
@@ -3198,7 +3198,7 @@ class EffectSizeDataFrame(object):
                                     'contrast_bars','contrast_bars_kwargs','contrast_dots','contrast_dots_kwargs']
         
         unique_vertical_kwargs = ['self','barchart_label','delta2_label','swarm_ylim','barchart_ylim','contrast_ylim',
-                                  'delta2_ylim','bar_label','bar_desat','bar_width','bar_ylim','ci', 'ci_type','err_color',
+                                  'delta2_ylim','bar_label','bar_desat','bar_width','bar_ylim','ci','ci_type','err_color',
                                   'float_contrast','show_pairs','show_delta2','group_summaries','group_summaries_offset',
                                   'swarmplot_kwargs','barplot_kwargs', 'violinplot_kwargs', 'slopegraph_kwargs', 'sankey_kwargs', 
                                   'reflines_kwargs', 'group_summary_kwargs']
